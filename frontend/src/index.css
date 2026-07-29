@@ -1,0 +1,114 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Paleta SIGEVAC — inspirada en telón de teatro y luces de escenario,
+     acorde a Sueños de Comedia A.C. */
+  --sg-bg: #F6F3FA;
+  --sg-surface: #FFFFFF;
+  --sg-ink: #1F1A2E;
+  --sg-ink-soft: #5B5470;
+  --sg-primary: #5B2A86;
+  --sg-primary-dark: #3E1C60;
+  --sg-accent: #F2A93B;
+  --sg-success: #2F9E6E;
+  --sg-warning: #E0A400;
+  --sg-danger: #C4453D;
+  --sg-border: #E4DEEF;
+
+  --sg-font-display: 'Fraunces', Georgia, serif;
+  --sg-font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  --sg-radius: 14px;
+  --sg-shadow: 0 8px 30px rgba(31, 26, 46, 0.08);
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--sg-bg);
+  color: var(--sg-ink);
+  font-family: var(--sg-font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  font-family: var(--sg-font-display);
+  color: var(--sg-ink);
+  margin: 0;
+}
+
+a { color: var(--sg-primary); }
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+button:focus-visible,
+input:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--sg-primary);
+  outline-offset: 2px;
+}
+
+.sg-input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--sg-border);
+  border-radius: 10px;
+  font-size: 15px;
+  font-family: var(--sg-font-body);
+  color: var(--sg-ink);
+  background: var(--sg-surface);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sg-input:focus {
+  border-color: var(--sg-primary);
+  box-shadow: 0 0 0 3px rgba(91, 42, 134, 0.12);
+  outline: none;
+}
+
+.sg-button-primary {
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 10px;
+  background: var(--sg-primary);
+  color: white;
+  font-weight: 600;
+  font-size: 15px;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.sg-button-primary:hover:not(:disabled) {
+  background: var(--sg-primary-dark);
+}
+
+.sg-button-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.sg-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.sg-badge-success { background: rgba(47, 158, 110, 0.12); color: var(--sg-success); }
+.sg-badge-warning { background: rgba(224, 164, 0, 0.14); color: var(--sg-warning); }
+.sg-badge-danger  { background: rgba(196, 69, 61, 0.12); color: var(--sg-danger); }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
