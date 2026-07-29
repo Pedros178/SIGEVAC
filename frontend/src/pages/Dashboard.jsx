@@ -1,59 +1,55 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
+import BarraNavegacion from '../components/BarraNavegacion.jsx';
 import api from '../services/api';
 
 export default function Dashboard() {
-  const { usuario, logout } = useAuth();
+  const { usuario } = useAuth();
   const [asociacion, setAsociacion] = useState(null);
+  const [totalVoluntarios, setTotalVoluntarios] = useState(null);
 
   useEffect(() => {
     api.get('/asociacion').then(({ data }) => setAsociacion(data.asociacion)).catch(() => {});
+    api.get('/voluntarios', { params: { limit: 1 } })
+      .then(({ data }) => setTotalVoluntarios(data.voluntarios.length))
+      .catch(() => {});
   }, []);
 
   const indicadores = [
-    { etiqueta: 'Voluntarios totales', valor: '—', nota: 'Módulo 4 · Fase 2' },
-    { etiqueta: 'Expedientes completos', valor: '—', nota: 'Módulo 9 · Fase 2' },
+    { etiqueta: 'Voluntarios registrados', valor: totalVoluntarios ?? '—', nota: 'Módulo 4 · Fase 2 activa' },
+    { etiqueta: 'Expedientes completos', valor: '—', nota: 'Ver detalle por voluntario' },
     { etiqueta: 'Actividades del mes', valor: '—', nota: 'Módulo 10 · Fase 3' },
     { etiqueta: 'Horas de servicio', valor: '—', nota: 'Módulo 12 · Fase 3' },
   ];
 
   return (
-    <div style={styles.contenedor}>
-      <header style={styles.encabezado}>
-        <div>
-          <h1 style={styles.titulo}>SIGEVAC</h1>
+    <div>
+      <BarraNavegacion />
+      <div style={styles.contenedor}>
+        <div style={{ marginBottom: 24 }}>
+          <h1 style={styles.titulo}>Bienvenido, {usuario?.nombre?.split(' ')[0]}</h1>
           <p style={styles.subtitulo}>{asociacion?.nombre || 'Sueños de Comedia A.C.'}</p>
         </div>
-        <div style={styles.usuarioBox}>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontWeight: 600, fontSize: 14 }}>{usuario?.nombre}</div>
-            <div style={{ fontSize: 12.5, color: 'var(--sg-ink-soft)' }}>
-              {usuario?.roles?.map((r) => r.nombre).join(', ') || 'Sin rol asignado'}
+
+        <section style={styles.grid}>
+          {indicadores.map((ind) => (
+            <div key={ind.etiqueta} style={styles.tarjeta}>
+              <div style={styles.valorTarjeta}>{ind.valor}</div>
+              <div style={styles.etiquetaTarjeta}>{ind.etiqueta}</div>
+              <div style={styles.notaTarjeta}>{ind.nota}</div>
             </div>
-          </div>
-          <button onClick={logout} className="sg-button-primary" style={{ width: 'auto', padding: '8px 16px' }}>
-            Salir
-          </button>
-        </div>
-      </header>
+          ))}
+        </section>
 
-      <section style={styles.grid}>
-        {indicadores.map((ind) => (
-          <div key={ind.etiqueta} style={styles.tarjeta}>
-            <div style={styles.valorTarjeta}>{ind.valor}</div>
-            <div style={styles.etiquetaTarjeta}>{ind.etiqueta}</div>
-            <div style={styles.notaTarjeta}>{ind.nota}</div>
-          </div>
-        ))}
-      </section>
-
-      <section style={styles.avisoFase}>
-        <span className="sg-badge sg-badge-success">Fase 1 activa</span>
-        <p>
-          Autenticación, usuarios/roles y datos de la asociación están funcionando. Los módulos de
-          voluntarios, expedientes y actividades se activarán en las siguientes fases del roadmap.
-        </p>
-      </section>
+        <section style={styles.avisoFase}>
+          <span className="sg-badge sg-badge-success">Fase 2 activa</span>
+          <p>
+            Voluntarios, expedientes digitales y el gestor de archivos ya están funcionando.
+            Ve a la sección <strong>Voluntarios</strong> para registrar personas y dar seguimiento
+            a su expediente con semáforo de avance.
+          </p>
+        </section>
+      </div>
     </div>
   );
 }
@@ -64,23 +60,12 @@ const styles = {
     margin: '0 auto',
     padding: '32px 24px 60px',
   },
-  encabezado: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 32,
-  },
   titulo: { fontSize: 28 },
   subtitulo: {
     fontFamily: 'var(--sg-font-body)',
     color: 'var(--sg-ink-soft)',
     fontSize: 14,
     marginTop: 2,
-  },
-  usuarioBox: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 16,
   },
   grid: {
     display: 'grid',
@@ -125,3 +110,4 @@ const styles = {
     lineHeight: 1.6,
   },
 };
+

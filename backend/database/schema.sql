@@ -157,9 +157,10 @@ CREATE TABLE voluntarios (
     contacto_emergencia_nombre VARCHAR(150),
     contacto_emergencia_telefono VARCHAR(20),
     contacto_emergencia_parentesco VARCHAR(60),
-    es_menor_edad BOOLEAN GENERATED ALWAYS AS (
-        fecha_nacimiento > (CURRENT_DATE - INTERVAL '18 years')
-    ) STORED,
+    -- Nota: no se usa columna GENERATED con CURRENT_DATE porque Postgres
+    -- exige expresiones inmutables en columnas generadas, y CURRENT_DATE
+    -- no lo es. Se calcula en la aplicación al crear/actualizar el registro.
+    es_menor_edad BOOLEAN NOT NULL DEFAULT false,
     activo BOOLEAN NOT NULL DEFAULT true,
     creado_por UUID REFERENCES usuarios(id),
     creado_en TIMESTAMPTZ NOT NULL DEFAULT now(),

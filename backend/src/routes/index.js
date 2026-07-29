@@ -2,6 +2,9 @@ const express = require('express');
 const authRoutes = require('./authRoutes');
 const usuarioRoutes = require('./usuarioRoutes');
 const asociacionRoutes = require('./asociacionRoutes');
+const voluntarioRoutes = require('./voluntarioRoutes');
+const documentoRoutes = require('./documentoRoutes');
+const archivoRoutes = require('./archivoRoutes');
 
 const router = express.Router();
 
@@ -12,11 +15,11 @@ router.get('/health', (req, res) => {
 router.use('/auth', authRoutes);
 router.use('/usuarios', usuarioRoutes);
 router.use('/asociacion', asociacionRoutes);
+router.use('/voluntarios', voluntarioRoutes);     // Fase 2: Módulos 4, 5, 6, 7, 9
+router.use('/documentos', documentoRoutes);        // Fase 2: Módulos 7, 8, 9
+router.use('/archivos', archivoRoutes);             // Fase 2: Módulo 8
 
 // Los siguientes módulos se irán agregando en las próximas fases:
-// router.use('/voluntarios', voluntarioRoutes);       // Fase 2
-// router.use('/expedientes', expedienteRoutes);        // Fase 2
-// router.use('/archivos', archivoRoutes);               // Fase 2
 // router.use('/actividades', actividadRoutes);          // Fase 3
 // router.use('/participaciones', participacionRoutes); // Fase 3
 // router.use('/credenciales', credencialRoutes);        // Fase 3

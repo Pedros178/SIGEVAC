@@ -17,7 +17,7 @@ Proyecto de residencia — Instituto Tecnológico de Tehuacán (ITT), en colabor
 | Fase | Contenido | Estado |
 |------|-----------|--------|
 | **1** | Autenticación, Usuarios/Roles, Asociación Civil | ✅ Implementado |
-| 2 | Voluntarios, Expedientes, Gestor de archivos | ⏳ Pendiente |
+| **2** | Voluntarios, Expedientes digitales, Gestor de archivos | ✅ Implementado |
 | 3 | Actividades, Participación, Horas, Credencial/QR | ⏳ Pendiente |
 | 4 | Dashboard, Reportes, Notificaciones | ⏳ Pendiente |
 | 5 | Auditoría, Bitácora, Configuración, Respaldo, API docs | ⏳ Pendiente |
@@ -96,6 +96,24 @@ npm run dev            # http://localhost:5173
 - Contraseñas con bcrypt (12 rounds), tokens de recuperación con SHA-256
 - Control de acceso por rol (`requiereRol`) y por permiso granular (`requierePermiso`)
 - 6 roles predefinidos: `super_admin`, `presidente`, `coordinador`, `capturista`, `supervisor`, `consulta`
+
+## Fase 2 — Voluntarios, Expedientes y Gestor de archivos (Módulos 4–9)
+
+- **Registro de voluntarios** con folio automático (`SC-AAAA-0001`), detección de mayoría/minoría de edad y datos de tutor obligatorios para menores (Módulo 6)
+- **Clasificación** por tipo de voluntario (Módulo 5): mayor/menor, servicio social, residencia, temporal, permanente, coordinador, instructor
+- **Expediente digital automático**: al registrar un voluntario, el sistema crea su expediente y las filas de documentos requeridos según aplique (mayor/menor/ambos)
+- **Gestor de archivos con versionado** (Módulo 8): cada carga de documento genera una nueva versión, conservando el historial completo
+- **Semáforo de expediente** (Módulo 9): 🔴 incompleto / 🟡 en revisión / 🟢 completo, con porcentaje de avance recalculado automáticamente en cada carga, aprobación o rechazo de documento
+- **Flujo de aprobación/rechazo** de documentos con motivo obligatorio en caso de rechazo
+- Frontend: listado de voluntarios con búsqueda, alta con formulario condicional (tutor si es menor), y vista de expediente con carga de archivos y aprobación en un clic
+
+Todo este flujo fue probado de extremo a extremo contra una base de datos PostgreSQL real (login → alta de voluntario menor con tutor → verificación de los 8 documentos aplicables → carga de archivo → aprobación → recálculo de semáforo → descarga autenticada).
+
+### Notas técnicas encontradas durante las pruebas
+
+- **Columnas generadas y `CURRENT_DATE`**: PostgreSQL no permite `GENERATED ALWAYS AS (...) STORED` con `CURRENT_DATE` porque no es una expresión inmutable. `es_menor_edad` se calcula en la aplicación al crear/actualizar el registro, no en la base de datos.
+- **`dotenv` y el carácter `#`**: cualquier valor en `.env` que contenga `#` (por ejemplo, una contraseña como `Sigevac#2026`) debe ir entre comillas dobles, porque `dotenv` lo interpreta como inicio de comentario incluso sin espacio previo.
+- **Multer**: se usa la versión 2.x (la 1.x tiene vulnerabilidades conocidas sin parchear).
 
 ## Roadmap de módulos (23 totales, ver especificación completa)
 
