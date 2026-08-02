@@ -22,6 +22,9 @@ export default function VoluntarioDetalle() {
   const { id } = useParams();
   const [voluntario, setVoluntario] = useState(null);
   const [expediente, setExpediente] = useState(null);
+  const [credencial, setCredencial] = useState(null);
+  const [horas, setHoras] = useState(null);
+  const [generandoCredencial, setGenerandoCredencial] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [subiendoId, setSubiendoId] = useState(null);
   const [error, setError] = useState('');
@@ -29,12 +32,20 @@ export default function VoluntarioDetalle() {
   const cargarDatos = useCallback(async () => {
     setCargando(true);
     try {
-      const [{ data: volData }, { data: expData }] = await Promise.all([
+      const [{ data: volData }, { data: expData }, { data: horasData }] = await Promise.all([
         api.get(`/voluntarios/${id}`),
         api.get(`/voluntarios/${id}/expediente`),
+        api.get(`/voluntarios/${id}/horas-servicio`),
       ]);
       setVoluntario(volData.voluntario);
       setExpediente(expData.expediente);
+      setHoras(horasData);
+      try {
+        const { data: credData } = await api.get(`/voluntarios/${id}/credencial`);
+        setCredencial(credData.credencial);
+      } catch {
+        setCredencial(null); // aún no tiene credencial generada
+      }
     } catch (err) {
       setError(err.response?.data?.error || 'No se pudo cargar el voluntario.');
     } finally {
@@ -43,6 +54,19 @@ export default function VoluntarioDetalle() {
   }, [id]);
 
   useEffect(() => { cargarDatos(); }, [cargarDatos]);
+
+  async function manejarGenerarCredencial() {
+    setGenerandoCredencial(true);
+    setError('');
+    try {
+      const { data } = await api.post(`/voluntarios/${id}/credencial`, {});
+      setCredencial(data.credencial);
+    } catch (err) {
+      setError(err.response?.data?.error || 'No se pudo generar la credencial.');
+    } finally {
+      setGenerandoCredencial(false);
+    }
+  }
 
   async function manejarSubirArchivo(documentoId, archivo) {
     setSubiendoId(documentoId);
@@ -161,6 +185,59 @@ export default function VoluntarioDetalle() {
             </div>
           ))}
         </div>
+
+        <div style={styles.filaDosColumnas}>
+          <div>
+            <h2 style={{ fontSize: 17, margin: '28px 0 12px' }}>Credencial digital</h2>
+            <div style={styles.tarjetaCredencial}>
+              {credencial ? (
+                <>
+                  <img src={credencial.qr_imagen} alt="Código QR de la credencial" style={{ width: 120, height: 120 }} />
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>{credencial.nombre}</div>
+                    <div style={{ fontSize: 12.5, color: 'var(--sg-ink-soft)' }}>Folio {credencial.numero_voluntario}</div>
+                    <div style={{ fontSize: 12.5, color: 'var(--sg-ink-soft)', marginTop: 4 }}>
+                      Vigente hasta {new Date(credencial.vigente_hasta).toLocaleDateString('es-MX')}
+                    </div>
+                    <button style={{ ...styles.botonSubir, marginTop: 10 }} onClick={manejarGenerarCredencial} disabled={generandoCredencial}>
+                      {generandoCredencial ? 'Renovando…' : 'Renovar credencial'}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <p style={{ fontSize: 13.5, color: 'var(--sg-ink-soft)', marginBottom: 10 }}>
+                    Este voluntario aún no tiene una credencial digital generada.
+                  </p>
+                  <button className="sg-button-primary" style={{ width: 'auto', padding: '9px 16px' }} onClick={manejarGenerarCredencial} disabled={generandoCredencial}>
+                    {generandoCredencial ? 'Generando…' : 'Generar credencial'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <h2 style={{ fontSize: 17, margin: '28px 0 12px' }}>Horas de servicio</h2>
+            <div style={styles.tarjetaHoras}>
+              <div style={{ fontFamily: 'var(--sg-font-display)', fontSize: 28, fontWeight: 600, color: 'var(--sg-primary)' }}>
+                {horas?.total_horas ?? 0} h
+              </div>
+              {horas?.detalle?.length > 0 ? (
+                <div style={{ marginTop: 10 }}>
+                  {horas.detalle.map((h) => (
+                    <div key={`${h.tipo}-${h.periodo}`} style={{ fontSize: 12.5, color: 'var(--sg-ink-soft)', display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+                      <span>{h.tipo} · {h.periodo}</span>
+                      <span>{h.horas_acumuladas} h</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p style={{ fontSize: 12.5, color: 'var(--sg-ink-soft)', marginTop: 8 }}>Sin horas registradas todavía.</p>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -215,5 +292,25 @@ const styles = {
     border: 'none',
     background: 'var(--sg-danger)',
     color: 'white',
+  },
+  filaDosColumnas: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: 24,
+  },
+  tarjetaCredencial: {
+    background: 'var(--sg-surface)',
+    border: '1px solid var(--sg-border)',
+    borderRadius: 'var(--sg-radius)',
+    padding: 18,
+    display: 'flex',
+    gap: 16,
+    alignItems: 'center',
+  },
+  tarjetaHoras: {
+    background: 'var(--sg-surface)',
+    border: '1px solid var(--sg-border)',
+    borderRadius: 'var(--sg-radius)',
+    padding: 18,
   },
 };

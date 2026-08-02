@@ -18,7 +18,7 @@ Proyecto de residencia — Instituto Tecnológico de Tehuacán (ITT), en colabor
 |------|-----------|--------|
 | **1** | Autenticación, Usuarios/Roles, Asociación Civil | ✅ Implementado |
 | **2** | Voluntarios, Expedientes digitales, Gestor de archivos | ✅ Implementado |
-| 3 | Actividades, Participación, Horas, Credencial/QR | ⏳ Pendiente |
+| **3** | Actividades, Participación, Horas, Credencial/QR | ✅ Implementado |
 | 4 | Dashboard, Reportes, Notificaciones | ⏳ Pendiente |
 | 5 | Auditoría, Bitácora, Configuración, Respaldo, API docs | ⏳ Pendiente |
 | 6 | Firma electrónica, generación de documentos, portales, multi-asociación | ⏳ Pendiente |
@@ -114,6 +114,17 @@ Todo este flujo fue probado de extremo a extremo contra una base de datos Postgr
 - **Columnas generadas y `CURRENT_DATE`**: PostgreSQL no permite `GENERATED ALWAYS AS (...) STORED` con `CURRENT_DATE` porque no es una expresión inmutable. `es_menor_edad` se calcula en la aplicación al crear/actualizar el registro, no en la base de datos.
 - **`dotenv` y el carácter `#`**: cualquier valor en `.env` que contenga `#` (por ejemplo, una contraseña como `Sigevac#2026`) debe ir entre comillas dobles, porque `dotenv` lo interpreta como inicio de comentario incluso sin espacio previo.
 - **Multer**: se usa la versión 2.x (la 1.x tiene vulnerabilidades conocidas sin parchear).
+
+## Fase 3 — Actividades, Horas de servicio y Credencial digital (Módulos 10–14)
+
+- **Actividades** (Módulo 10): alta, edición, listado con filtro de fechas y control de cupo.
+- **Evidencias fotográficas**: carga real de archivos (no solo URL) reutilizando el gestor de archivos del Módulo 8, con el mismo control de tipo y tamaño.
+- **Participación** (Módulo 11): inscripción de voluntarios a actividades, con búsqueda en vivo desde el frontend.
+- **Registro de asistencia**: entrada y salida por participación, con cálculo automático de horas realizadas dentro de una transacción de base de datos.
+- **Horas de servicio** (Módulo 12): acumulación automática por voluntario, tipo (`servicio_social`, `residencia` o `voluntariado`, según su clasificación) y periodo mensual, sin intervención manual.
+- **Credencial digital y QR** (Módulos 13–14): generación/renovación de credencial con vigencia de 12 meses, código QR único por voluntario (imagen PNG en base64) y endpoint de validación de identidad por escaneo de credencial.
+
+Todo el flujo de esta fase (crear actividad → inscribir voluntario → registrar entrada → registrar salida con cálculo real de horas → verificar acumulado por periodo → generar credencial con QR → validar identidad escaneando el código → subir evidencia fotográfica) fue probado de extremo a extremo contra PostgreSQL real.
 
 ## Roadmap de módulos (23 totales, ver especificación completa)
 

@@ -28,7 +28,11 @@ INSERT INTO permisos (clave, modulo, descripcion) VALUES
     ('expedientes.consultar', 'expedientes',  'Ver expedientes'),
     ('reportes.consultar',    'reportes',     'Ver y exportar reportes'),
     ('configuracion.editar',  'configuracion','Editar configuración del sistema'),
-    ('auditoria.consultar',   'auditoria',    'Ver bitácora y auditoría')
+    ('auditoria.consultar',   'auditoria',    'Ver bitácora y auditoría'),
+    ('actividades.crear',      'actividades',  'Crear y editar actividades'),
+    ('actividades.consultar',  'actividades',  'Ver actividades y sus participantes'),
+    ('participaciones.gestionar', 'participaciones', 'Inscribir voluntarios y registrar asistencia/horas'),
+    ('credenciales.generar',   'credenciales', 'Generar o regenerar credencial digital y QR')
 ON CONFLICT (clave) DO NOTHING;
 
 -- Asignación de permisos a roles: super_admin recibe todos
@@ -49,7 +53,8 @@ SELECT r.id, p.id FROM roles r CROSS JOIN permisos p
 WHERE r.nombre = 'coordinador'
   AND p.clave IN ('voluntarios.crear','voluntarios.editar','voluntarios.consultar',
                    'expedientes.aprobar','expedientes.consultar','reportes.consultar',
-                   'asociacion.consultar')
+                   'asociacion.consultar','actividades.crear','actividades.consultar',
+                   'participaciones.gestionar','credenciales.generar')
 ON CONFLICT DO NOTHING;
 
 -- capturista: captura sin aprobar
@@ -57,14 +62,15 @@ INSERT INTO roles_permisos (rol_id, permiso_id)
 SELECT r.id, p.id FROM roles r CROSS JOIN permisos p
 WHERE r.nombre = 'capturista'
   AND p.clave IN ('voluntarios.crear','voluntarios.editar','voluntarios.consultar',
-                   'expedientes.consultar')
+                   'expedientes.consultar','actividades.consultar','participaciones.gestionar')
 ON CONFLICT DO NOTHING;
 
 -- supervisor
 INSERT INTO roles_permisos (rol_id, permiso_id)
 SELECT r.id, p.id FROM roles r CROSS JOIN permisos p
 WHERE r.nombre = 'supervisor'
-  AND p.clave IN ('voluntarios.consultar','expedientes.consultar','reportes.consultar')
+  AND p.clave IN ('voluntarios.consultar','expedientes.consultar','reportes.consultar',
+                   'actividades.consultar','participaciones.gestionar')
 ON CONFLICT DO NOTHING;
 
 -- consulta: solo lectura

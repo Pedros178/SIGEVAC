@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 const enlaces = [
   { to: '/', etiqueta: 'Dashboard' },
   { to: '/voluntarios', etiqueta: 'Voluntarios' },
+  { to: '/actividades', etiqueta: 'Actividades' },
 ];
 
 export default function BarraNavegacion() {

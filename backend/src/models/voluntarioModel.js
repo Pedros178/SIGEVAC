@@ -128,16 +128,20 @@ const VoluntarioModel = {
     return rows[0];
   },
 
-  async asignarTipos(voluntarioId, tiposIds, client = null) {
+  /**
+   * Asigna tipos de voluntario a partir de sus CLAVES (p.ej. 'servicio_social'),
+   * que es lo que envía el frontend — no sus ids numéricos.
+   */
+  async asignarTipos(voluntarioId, tiposClaves, client = null) {
     const ejecutor = client || { query };
+    if (!tiposClaves?.length) return;
     await ejecutor.query(`DELETE FROM voluntarios_tipos WHERE voluntario_id = $1`, [voluntarioId]);
-    for (const tipoId of tiposIds) {
-      await ejecutor.query(
-        `INSERT INTO voluntarios_tipos (voluntario_id, tipo_voluntario_id) VALUES ($1, $2)
-         ON CONFLICT DO NOTHING`,
-        [voluntarioId, tipoId]
-      );
-    }
+    await ejecutor.query(
+      `INSERT INTO voluntarios_tipos (voluntario_id, tipo_voluntario_id)
+       SELECT $1, id FROM tipos_voluntario WHERE clave = ANY($2::text[])
+       ON CONFLICT DO NOTHING`,
+      [voluntarioId, tiposClaves]
+    );
   },
 
   async obtenerTipos(voluntarioId) {
