@@ -8,6 +8,9 @@ const archivoRoutes = require('./archivoRoutes');
 const actividadRoutes = require('./actividadRoutes');
 const participacionRoutes = require('./participacionRoutes');
 const qrRoutes = require('./qrRoutes');
+const dashboardRoutes = require('./dashboardRoutes');
+const reporteRoutes = require('./reporteRoutes');
+const notificacionRoutes = require('./notificacionRoutes');
 
 const router = express.Router();
 
@@ -24,11 +27,11 @@ router.use('/archivos', archivoRoutes);             // Fase 2: Módulo 8
 router.use('/actividades', actividadRoutes);        // Fase 3: Módulos 10, 11
 router.use('/participaciones', participacionRoutes);// Fase 3: Módulos 11, 12
 router.use('/qr', qrRoutes);                         // Fase 3: Módulo 14
+router.use('/dashboard', dashboardRoutes);           // Fase 4: Módulo 16
+router.use('/reportes', reporteRoutes);              // Fase 4: Módulo 15
+router.use('/notificaciones', notificacionRoutes);  // Fase 4: Módulo 17
 
 // Los siguientes módulos se irán agregando en las próximas fases:
-// router.use('/credenciales', credencialRoutes);        // Fase 3 (ya cubierto por /voluntarios/:id/credencial)
-// router.use('/reportes', reporteRoutes);                // Fase 4
-// router.use('/notificaciones', notificacionRoutes);    // Fase 4
 // router.use('/auditoria', auditoriaRoutes);             // Fase 5
 // router.use('/configuracion', configuracionRoutes);    // Fase 5
 

@@ -19,7 +19,7 @@ Proyecto de residencia — Instituto Tecnológico de Tehuacán (ITT), en colabor
 | **1** | Autenticación, Usuarios/Roles, Asociación Civil | ✅ Implementado |
 | **2** | Voluntarios, Expedientes digitales, Gestor de archivos | ✅ Implementado |
 | **3** | Actividades, Participación, Horas, Credencial/QR | ✅ Implementado |
-| 4 | Dashboard, Reportes, Notificaciones | ⏳ Pendiente |
+| **4** | Dashboard, Reportes, Notificaciones | ✅ Implementado |
 | 5 | Auditoría, Bitácora, Configuración, Respaldo, API docs | ⏳ Pendiente |
 | 6 | Firma electrónica, generación de documentos, portales, multi-asociación | ⏳ Pendiente |
 
@@ -125,6 +125,15 @@ Todo este flujo fue probado de extremo a extremo contra una base de datos Postgr
 - **Credencial digital y QR** (Módulos 13–14): generación/renovación de credencial con vigencia de 12 meses, código QR único por voluntario (imagen PNG en base64) y endpoint de validación de identidad por escaneo de credencial.
 
 Todo el flujo de esta fase (crear actividad → inscribir voluntario → registrar entrada → registrar salida con cálculo real de horas → verificar acumulado por periodo → generar credencial con QR → validar identidad escaneando el código → subir evidencia fotográfica) fue probado de extremo a extremo contra PostgreSQL real.
+
+## Fase 4 — Dashboard, Reportes y Notificaciones (Módulos 15–17)
+
+- **Dashboard** (Módulo 16): indicadores en tiempo real (voluntarios activos, nuevos del mes, expedientes por estado, actividades del mes, horas totales acumuladas, documentos faltantes), calculados directamente en PostgreSQL, sin cachés intermedias.
+- **Reportes** (Módulo 15): 10 reportes (voluntarios activos/inactivos, expedientes completos/pendientes, horas acumuladas, participación por actividad, documentos faltantes, voluntarios por municipio, menores, mayores), cada uno exportable en **JSON, CSV, Excel (.xlsx) y PDF** desde el mismo endpoint (`?formato=`).
+- **Notificaciones** (Módulo 17): servicio de correo con degradación elegante — si no hay SMTP configurado en `.env`, el sistema sigue funcionando y solo registra el intento en consola, sin romper el flujo. Se dispara automáticamente al rechazar un documento, al completarse un expediente, y al crear una nueva actividad; además hay un endpoint manual para recordar documentos faltantes.
+- Frontend: Dashboard conectado a indicadores reales, página de Reportes con vista previa y descarga en los 3 formatos de archivo, y una campanita de notificaciones con contador de no leídas en la barra de navegación.
+
+Todo el flujo de esta fase (consultar dashboard → generar cada reporte en sus 4 formatos → crear actividad y verificar notificación interna → rechazar documento y verificar intento de correo → notificar documentos faltantes → marcar notificación como leída) fue probado de extremo a extremo contra PostgreSQL real. Durante las pruebas se encontró y corrigió un bug: las fechas exportadas se mostraban con formato JavaScript verboso (`Fri Jan 01 2010...`) en vez de una fecha legible; se corrigió formateando las fechas directamente en SQL con `to_char(..., 'YYYY-MM-DD')`.
 
 ## Roadmap de módulos (23 totales, ver especificación completa)
 

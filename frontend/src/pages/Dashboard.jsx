@@ -6,20 +6,20 @@ import api from '../services/api';
 export default function Dashboard() {
   const { usuario } = useAuth();
   const [asociacion, setAsociacion] = useState(null);
-  const [totalVoluntarios, setTotalVoluntarios] = useState(null);
+  const [indicadores, setIndicadores] = useState(null);
 
   useEffect(() => {
     api.get('/asociacion').then(({ data }) => setAsociacion(data.asociacion)).catch(() => {});
-    api.get('/voluntarios', { params: { limit: 1 } })
-      .then(({ data }) => setTotalVoluntarios(data.voluntarios.length))
-      .catch(() => {});
+    api.get('/dashboard').then(({ data }) => setIndicadores(data.indicadores)).catch(() => {});
   }, []);
 
-  const indicadores = [
-    { etiqueta: 'Voluntarios registrados', valor: totalVoluntarios ?? '—', nota: 'Módulo 4 · Fase 2 activa' },
-    { etiqueta: 'Expedientes completos', valor: '—', nota: 'Ver detalle por voluntario' },
-    { etiqueta: 'Actividades del mes', valor: '—', nota: 'Módulo 10 · Fase 3' },
-    { etiqueta: 'Horas de servicio', valor: '—', nota: 'Módulo 12 · Fase 3' },
+  const tarjetas = [
+    { etiqueta: 'Voluntarios activos', valor: indicadores?.total_voluntarios, nota: `${indicadores?.nuevos_este_mes ?? 0} nuevos este mes` },
+    { etiqueta: 'Expedientes completos', valor: indicadores?.expedientes_completos, nota: `${indicadores?.expedientes_incompletos ?? 0} incompletos` },
+    { etiqueta: 'Actividades del mes', valor: indicadores?.actividades_del_mes, nota: 'Módulo 10' },
+    { etiqueta: 'Horas de servicio', valor: indicadores?.horas_realizadas_total, nota: 'Acumuladas en total' },
+    { etiqueta: 'Documentos faltantes', valor: indicadores?.documentos_faltantes, nota: 'En todos los expedientes' },
+    { etiqueta: 'Expedientes en revisión', valor: indicadores?.expedientes_en_revision, nota: 'Con documentos cargados' },
   ];
 
   return (
@@ -32,9 +32,9 @@ export default function Dashboard() {
         </div>
 
         <section style={styles.grid}>
-          {indicadores.map((ind) => (
+          {tarjetas.map((ind) => (
             <div key={ind.etiqueta} style={styles.tarjeta}>
-              <div style={styles.valorTarjeta}>{ind.valor}</div>
+              <div style={styles.valorTarjeta}>{ind.valor ?? '—'}</div>
               <div style={styles.etiquetaTarjeta}>{ind.etiqueta}</div>
               <div style={styles.notaTarjeta}>{ind.nota}</div>
             </div>
@@ -42,11 +42,11 @@ export default function Dashboard() {
         </section>
 
         <section style={styles.avisoFase}>
-          <span className="sg-badge sg-badge-success">Fase 2 activa</span>
+          <span className="sg-badge sg-badge-success">Fase 4 activa</span>
           <p>
-            Voluntarios, expedientes digitales y el gestor de archivos ya están funcionando.
-            Ve a la sección <strong>Voluntarios</strong> para registrar personas y dar seguimiento
-            a su expediente con semáforo de avance.
+            Dashboard con indicadores en tiempo real, reportes exportables y notificaciones ya
+            están funcionando. Ve a <strong>Reportes</strong> para exportar información en PDF,
+            Excel o CSV.
           </p>
         </section>
       </div>
@@ -110,4 +110,3 @@ const styles = {
     lineHeight: 1.6,
   },
 };
-

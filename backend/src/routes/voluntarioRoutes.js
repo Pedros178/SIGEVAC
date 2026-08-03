@@ -20,6 +20,7 @@ router.delete('/:id', requierePermiso('voluntarios.eliminar'), VoluntarioControl
 
 // Expediente digital del voluntario (Módulos 7, 8, 9)
 router.get('/:voluntarioId/expediente', requierePermiso('expedientes.consultar'), ExpedienteController.obtener);
+router.post('/:voluntarioId/expediente/notificar-faltantes', requierePermiso('expedientes.aprobar'), ExpedienteController.notificarFaltantes);
 
 // Credencial digital, QR y horas de servicio (Módulos 12, 13, 14)
 router.get('/:id/credencial', requierePermiso('expedientes.consultar'), CredencialController.obtener);

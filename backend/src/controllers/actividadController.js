@@ -1,5 +1,6 @@
 const ActividadModel = require('../models/actividadModel');
 const ParticipacionModel = require('../models/participacionModel');
+const { notificarNuevaActividad } = require('../services/notificacionService');
 
 const ActividadController = {
   async listar(req, res, next) {
@@ -23,6 +24,7 @@ const ActividadController = {
       const actividad = await ActividadModel.crear({
         asociacionId: req.usuario.asociacionId, nombre, fecha, lugar, responsableId, descripcion, cupo,
       });
+      notificarNuevaActividad({ actividad, asociacionId: req.usuario.asociacionId }); // best-effort
       return res.status(201).json({ actividad });
     } catch (err) {
       return next(err);

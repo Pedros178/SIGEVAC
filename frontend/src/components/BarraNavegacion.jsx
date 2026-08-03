@@ -1,11 +1,13 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
+import NotificacionesMenu from './NotificacionesMenu.jsx';
 
 const enlaces = [
   { to: '/', etiqueta: 'Dashboard' },
   { to: '/voluntarios', etiqueta: 'Voluntarios' },
   { to: '/actividades', etiqueta: 'Actividades' },
+  { to: '/reportes', etiqueta: 'Reportes' },
 ];
 
 export default function BarraNavegacion() {
@@ -32,6 +34,7 @@ export default function BarraNavegacion() {
         </nav>
       </div>
       <div style={styles.derecha}>
+        <NotificacionesMenu />
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontWeight: 600, fontSize: 14 }}>{usuario?.nombre}</div>
           <div style={{ fontSize: 12, color: 'var(--sg-ink-soft)' }}>
