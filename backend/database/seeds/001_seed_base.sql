@@ -32,7 +32,9 @@ INSERT INTO permisos (clave, modulo, descripcion) VALUES
     ('actividades.crear',      'actividades',  'Crear y editar actividades'),
     ('actividades.consultar',  'actividades',  'Ver actividades y sus participantes'),
     ('participaciones.gestionar', 'participaciones', 'Inscribir voluntarios y registrar asistencia/horas'),
-    ('credenciales.generar',   'credenciales', 'Generar o regenerar credencial digital y QR')
+    ('credenciales.generar',   'credenciales', 'Generar o regenerar credencial digital y QR'),
+    ('configuracion.consultar','configuracion','Ver configuración del sistema'),
+    ('respaldos.gestionar',    'respaldos',    'Generar, listar y descargar respaldos de la base de datos')
 ON CONFLICT (clave) DO NOTHING;
 
 -- Asignación de permisos a roles: super_admin recibe todos
@@ -44,7 +46,7 @@ ON CONFLICT DO NOTHING;
 INSERT INTO roles_permisos (rol_id, permiso_id)
 SELECT r.id, p.id FROM roles r CROSS JOIN permisos p
 WHERE r.nombre = 'presidente'
-  AND p.clave NOT IN ('configuracion.editar', 'usuarios.eliminar')
+  AND p.clave NOT IN ('configuracion.editar', 'usuarios.eliminar', 'respaldos.gestionar')
 ON CONFLICT DO NOTHING;
 
 -- coordinador: gestión operativa de voluntarios/expedientes/actividades

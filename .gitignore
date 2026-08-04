@@ -5,3 +5,5 @@ build/
 *.log
 .DS_Store
 coverage/
+backend/uploads/
+backend/backups/

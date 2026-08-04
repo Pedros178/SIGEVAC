@@ -7,6 +7,7 @@ import VoluntarioDetalle from './pages/VoluntarioDetalle.jsx';
 import Actividades from './pages/Actividades.jsx';
 import ActividadDetalle from './pages/ActividadDetalle.jsx';
 import Reportes from './pages/Reportes.jsx';
+import Administracion from './pages/Administracion.jsx';
 import RutaProtegida from './components/RutaProtegida.jsx';
 
 export default function App() {
@@ -58,6 +59,14 @@ export default function App() {
         element={
           <RutaProtegida>
             <Reportes />
+          </RutaProtegida>
+        }
+      />
+      <Route
+        path="/administracion"
+        element={
+          <RutaProtegida>
+            <Administracion />
           </RutaProtegida>
         }
       />

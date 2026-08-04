@@ -1,4 +1,6 @@
 const express = require('express');
+const swaggerUi = require('swagger-ui-express');
+const openapiSpec = require('../docs/openapi');
 const authRoutes = require('./authRoutes');
 const usuarioRoutes = require('./usuarioRoutes');
 const asociacionRoutes = require('./asociacionRoutes');
@@ -11,12 +13,17 @@ const qrRoutes = require('./qrRoutes');
 const dashboardRoutes = require('./dashboardRoutes');
 const reporteRoutes = require('./reporteRoutes');
 const notificacionRoutes = require('./notificacionRoutes');
+const auditoriaRoutes = require('./auditoriaRoutes');
+const configuracionRoutes = require('./configuracionRoutes');
+const respaldoRoutes = require('./respaldoRoutes');
 
 const router = express.Router();
 
 router.get('/health', (req, res) => {
   res.json({ status: 'ok', servicio: 'SIGEVAC API', fecha: new Date().toISOString() });
 });
+
+router.use('/docs', swaggerUi.serve, swaggerUi.setup(openapiSpec)); // Módulo 22: documentación de la API
 
 router.use('/auth', authRoutes);
 router.use('/usuarios', usuarioRoutes);
@@ -30,9 +37,11 @@ router.use('/qr', qrRoutes);                         // Fase 3: Módulo 14
 router.use('/dashboard', dashboardRoutes);           // Fase 4: Módulo 16
 router.use('/reportes', reporteRoutes);              // Fase 4: Módulo 15
 router.use('/notificaciones', notificacionRoutes);  // Fase 4: Módulo 17
+router.use('/auditoria', auditoriaRoutes);           // Fase 5: Módulos 18, 21
+router.use('/configuracion', configuracionRoutes);  // Fase 5: Módulo 19
+router.use('/respaldos', respaldoRoutes);            // Fase 5: Módulo 20
 
 // Los siguientes módulos se irán agregando en las próximas fases:
-// router.use('/auditoria', auditoriaRoutes);             // Fase 5
-// router.use('/configuracion', configuracionRoutes);    // Fase 5
+// Fase 6: firma electrónica, generación de documentos, portal del voluntario/tutor, multi-asociación
 
 module.exports = router;

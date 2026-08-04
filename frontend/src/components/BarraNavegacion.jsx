@@ -8,6 +8,7 @@ const enlaces = [
   { to: '/voluntarios', etiqueta: 'Voluntarios' },
   { to: '/actividades', etiqueta: 'Actividades' },
   { to: '/reportes', etiqueta: 'Reportes' },
+  { to: '/administracion', etiqueta: 'Administración' },
 ];
 
 export default function BarraNavegacion() {

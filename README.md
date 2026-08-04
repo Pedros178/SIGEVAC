@@ -20,7 +20,7 @@ Proyecto de residencia — Instituto Tecnológico de Tehuacán (ITT), en colabor
 | **2** | Voluntarios, Expedientes digitales, Gestor de archivos | ✅ Implementado |
 | **3** | Actividades, Participación, Horas, Credencial/QR | ✅ Implementado |
 | **4** | Dashboard, Reportes, Notificaciones | ✅ Implementado |
-| 5 | Auditoría, Bitácora, Configuración, Respaldo, API docs | ⏳ Pendiente |
+| **5** | Auditoría, Bitácora, Configuración, Respaldo, API docs | ✅ Implementado |
 | 6 | Firma electrónica, generación de documentos, portales, multi-asociación | ⏳ Pendiente |
 
 ## Estructura del repositorio
@@ -134,6 +134,18 @@ Todo el flujo de esta fase (crear actividad → inscribir voluntario → registr
 - Frontend: Dashboard conectado a indicadores reales, página de Reportes con vista previa y descarga en los 3 formatos de archivo, y una campanita de notificaciones con contador de no leídas en la barra de navegación.
 
 Todo el flujo de esta fase (consultar dashboard → generar cada reporte en sus 4 formatos → crear actividad y verificar notificación interna → rechazar documento y verificar intento de correo → notificar documentos faltantes → marcar notificación como leída) fue probado de extremo a extremo contra PostgreSQL real. Durante las pruebas se encontró y corrigió un bug: las fechas exportadas se mostraban con formato JavaScript verboso (`Fri Jan 01 2010...`) en vez de una fecha legible; se corrigió formateando las fechas directamente en SQL con `to_char(..., 'YYYY-MM-DD')`.
+
+## Fase 5 — Auditoría, Bitácora, Configuración, Respaldo y API docs (Módulos 18–22)
+
+- **Trazabilidad automática** (`src/middlewares/trazabilidad.js`): se monta una sola vez en `server.js` y registra, sin bloquear ni retrasar la respuesta (usa el evento `finish` de Express):
+  - **Bitácora** (Módulo 21): toda petición autenticada, exitosa o no.
+  - **Auditoría** (Módulo 18): solo operaciones que modifican datos (POST/PUT/PATCH/DELETE) que tuvieron éxito, con el cuerpo de la petición sanitizado (contraseñas y tokens nunca se registran).
+- **Configuración** (Módulo 19): pares clave/valor por asociación, editables desde el panel de administración.
+- **Respaldo** (Módulo 20): genera un dump real de PostgreSQL con `pg_dump` (formato plano), lo registra en la tabla `respaldos` y permite descargarlo — funcionalidad reservada al rol `super_admin`.
+- **Documentación de la API** (Módulo 22): especificación OpenAPI 3.0 servida con Swagger UI en `/api/docs`, cubriendo los endpoints de las Fases 1 a 5.
+- Frontend: página de Administración con pestañas para Auditoría, Bitácora, Configuración y Respaldos (con descarga directa del dump).
+
+Todo el flujo de esta fase (crear un voluntario y verificar que aparece en auditoría y bitácora automáticamente → establecer y listar configuración → generar un respaldo real con `pg_dump` y descargarlo → verificar que Swagger UI responde → confirmar que un usuario con rol `coordinador` recibe 403 al intentar generar respaldos o ver auditoría) fue probado de extremo a extremo contra PostgreSQL real.
 
 ## Roadmap de módulos (23 totales, ver especificación completa)
 
