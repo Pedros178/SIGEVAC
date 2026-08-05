@@ -12,7 +12,7 @@ Proyecto de residencia — Instituto Tecnológico de Tehuacán (ITT), en colabor
 - **Frontend:** React 18 + Vite, React Router
 - **Base de datos:** PostgreSQL (27 tablas, ver `backend/database/schema.sql`)
 
-## Estado del proyecto — Fase 1 completada ✅
+## Estado del proyecto — 6 de 6 fases completadas ✅
 
 | Fase | Contenido | Estado |
 |------|-----------|--------|
@@ -21,7 +21,7 @@ Proyecto de residencia — Instituto Tecnológico de Tehuacán (ITT), en colabor
 | **3** | Actividades, Participación, Horas, Credencial/QR | ✅ Implementado |
 | **4** | Dashboard, Reportes, Notificaciones | ✅ Implementado |
 | **5** | Auditoría, Bitácora, Configuración, Respaldo, API docs | ✅ Implementado |
-| 6 | Firma electrónica, generación de documentos, portales, multi-asociación | ⏳ Pendiente |
+| **6** | Firma electrónica, generación de documentos, portales, multi-asociación | ✅ Implementado |
 
 ## Estructura del repositorio
 
@@ -146,6 +146,15 @@ Todo el flujo de esta fase (consultar dashboard → generar cada reporte en sus 
 - Frontend: página de Administración con pestañas para Auditoría, Bitácora, Configuración y Respaldos (con descarga directa del dump).
 
 Todo el flujo de esta fase (crear un voluntario y verificar que aparece en auditoría y bitácora automáticamente → establecer y listar configuración → generar un respaldo real con `pg_dump` y descargarlo → verificar que Swagger UI responde → confirmar que un usuario con rol `coordinador` recibe 403 al intentar generar respaldos o ver auditoría) fue probado de extremo a extremo contra PostgreSQL real.
+
+## Fase 6 — Diferenciadores (firma electrónica, plantillas, portal, multi-asociación)
+
+- **Generación automática de documentos** desde plantilla institucional (PDF vía `pdfkit`): carta responsiva, aviso de privacidad, reglamento interno, uso de imagen y carta de autorización del tutor, con los datos del voluntario ya rellenados. *Nota: son plantillas base; se recomienda su revisión por un asesor legal de la asociación antes de un uso oficial.*
+- **Firma electrónica simple**: captura del trazo en un `<canvas>` del navegador, guardada como PNG junto con el nombre del firmante, IP y user-agent, como acuse de conformidad sobre el documento vigente.
+- **Portal del voluntario/tutor**: acceso sin contraseña mediante "enlace mágico" (JWT de 24 h enviado por correo), donde el propio voluntario —o el tutor, si es menor de edad, usando el correo registrado como tutor— puede consultar su expediente y subir sus documentos pendientes. Verificado que un voluntario **no puede** subir documentos al expediente de otro (403).
+- **Preparación multi-asociación**: revisado que el aislamiento por `asociacion_id` ya está aplicado consistentemente en voluntarios, actividades, dashboard y reportes desde las fases anteriores. La limitación actual conocida es que cada usuario del sistema pertenece a una sola asociación (`usuarios.asociacion_id` es una FK simple, no N:M); habilitar múltiples asociaciones por usuario del sistema es el siguiente paso de arquitectura, fuera del alcance de esta residencia por el riesgo de modificar el modelo de autenticación en esta etapa final del proyecto.
+
+Todo el flujo de esta fase (generar un documento desde plantilla y verificar el PDF resultante → firmar un documento y recuperar la firma → solicitar acceso al portal, consultar el expediente propio y subir un documento → verificar que el portal rechaza el acceso sin token y el intento de subir un documento ajeno) fue probado de extremo a extremo contra PostgreSQL real.
 
 ## Roadmap de módulos (23 totales, ver especificación completa)
 

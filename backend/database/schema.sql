@@ -368,6 +368,23 @@ CREATE TABLE respaldos (
 );
 
 -- ============================================================
+-- FASE 6 (diferenciador): FIRMA ELECTRÓNICA SIMPLE
+-- Firma capturada en el navegador (trazo sobre <canvas>), guardada como
+-- imagen PNG en base64. Aplica solo a los "formatos internos" —cartas,
+-- avisos y reglamentos— no a identificaciones oficiales.
+-- ============================================================
+CREATE TABLE firmas (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    documento_id UUID NOT NULL REFERENCES documentos(id) ON DELETE CASCADE,
+    firmante_nombre VARCHAR(150) NOT NULL,
+    firmante_tipo VARCHAR(20) NOT NULL DEFAULT 'voluntario', -- voluntario | tutor
+    imagen_png_base64 TEXT NOT NULL,
+    ip VARCHAR(45),
+    user_agent TEXT,
+    creado_en TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ============================================================
 -- ÍNDICES
 -- ============================================================
 CREATE INDEX idx_voluntarios_asociacion ON voluntarios(asociacion_id);
@@ -379,3 +396,4 @@ CREATE INDEX idx_auditoria_usuario ON auditoria(usuario_id);
 CREATE INDEX idx_auditoria_creado_en ON auditoria(creado_en);
 CREATE INDEX idx_notificaciones_usuario ON notificaciones(usuario_id, leida);
 CREATE INDEX idx_usuarios_correo ON usuarios(correo);
+CREATE INDEX idx_firmas_documento ON firmas(documento_id);

@@ -2,7 +2,10 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import BarraNavegacion from '../components/BarraNavegacion.jsx';
 import BadgeSemaforo from '../components/BadgeSemaforo.jsx';
+import PadFirma from '../components/PadFirma.jsx';
 import api from '../services/api';
+
+const TIPOS_CON_PLANTILLA = ['carta_responsiva', 'aviso_privacidad', 'reglamento_interno', 'uso_imagen', 'carta_autorizacion'];
 
 const ESTADO_DOCUMENTO_BADGE = {
   pendiente: 'sg-badge-danger',
@@ -27,6 +30,8 @@ export default function VoluntarioDetalle() {
   const [generandoCredencial, setGenerandoCredencial] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [subiendoId, setSubiendoId] = useState(null);
+  const [generandoId, setGenerandoId] = useState(null);
+  const [documentoAFirmar, setDocumentoAFirmar] = useState(null);
   const [error, setError] = useState('');
 
   const cargarDatos = useCallback(async () => {
@@ -82,6 +87,32 @@ export default function VoluntarioDetalle() {
       setError(err.response?.data?.error || 'No se pudo subir el archivo.');
     } finally {
       setSubiendoId(null);
+    }
+  }
+
+  async function manejarGenerarPlantilla(documentoId) {
+    setGenerandoId(documentoId);
+    setError('');
+    try {
+      await api.post(`/documentos/${documentoId}/generar`, {});
+      await cargarDatos();
+    } catch (err) {
+      setError(err.response?.data?.error || 'No se pudo generar el documento.');
+    } finally {
+      setGenerandoId(null);
+    }
+  }
+
+  async function manejarConfirmarFirma({ imagenPngBase64, firmanteNombre }) {
+    setError('');
+    try {
+      await api.post(`/documentos/${documentoAFirmar}/firmar`, {
+        imagenPngBase64, firmanteNombre, firmanteTipo: voluntario.es_menor_edad ? 'tutor' : 'voluntario',
+      });
+      setDocumentoAFirmar(null);
+      await cargarDatos();
+    } catch (err) {
+      setError(err.response?.data?.error || 'No se pudo registrar la firma.');
     }
   }
 
@@ -165,6 +196,15 @@ export default function VoluntarioDetalle() {
                 {ESTADO_DOCUMENTO_ETIQUETA[doc.estado]}
               </span>
               <div style={styles.accionesDocumento}>
+                {TIPOS_CON_PLANTILLA.includes(doc.tipo_clave) && (
+                  <button
+                    style={styles.botonSubir}
+                    onClick={() => manejarGenerarPlantilla(doc.id)}
+                    disabled={generandoId === doc.id}
+                  >
+                    {generandoId === doc.id ? 'Generando…' : 'Generar'}
+                  </button>
+                )}
                 <label style={styles.botonSubir}>
                   {subiendoId === doc.id ? 'Subiendo…' : doc.total_versiones > 0 ? 'Reemplazar' : 'Subir archivo'}
                   <input
@@ -175,6 +215,9 @@ export default function VoluntarioDetalle() {
                     onChange={(e) => e.target.files[0] && manejarSubirArchivo(doc.id, e.target.files[0])}
                   />
                 </label>
+                {TIPOS_CON_PLANTILLA.includes(doc.tipo_clave) && doc.total_versiones > 0 && (
+                  <button style={styles.botonSubir} onClick={() => setDocumentoAFirmar(doc.id)}>Firmar</button>
+                )}
                 {doc.estado === 'cargado' && (
                   <>
                     <button style={styles.botonAprobar} onClick={() => manejarAprobar(doc.id)}>Aprobar</button>
@@ -239,6 +282,14 @@ export default function VoluntarioDetalle() {
           </div>
         </div>
       </div>
+
+      {documentoAFirmar && (
+        <PadFirma
+          nombreSugerido={voluntario.es_menor_edad ? (voluntario.tutor?.nombre || '') : `${voluntario.nombre} ${voluntario.apellido_paterno || ''}`.trim()}
+          onFirmar={manejarConfirmarFirma}
+          onCancelar={() => setDocumentoAFirmar(null)}
+        />
+      )}
     </div>
   );
 }

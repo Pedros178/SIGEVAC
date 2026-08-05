@@ -8,12 +8,14 @@ import Actividades from './pages/Actividades.jsx';
 import ActividadDetalle from './pages/ActividadDetalle.jsx';
 import Reportes from './pages/Reportes.jsx';
 import Administracion from './pages/Administracion.jsx';
+import Portal from './pages/Portal.jsx';
 import RutaProtegida from './components/RutaProtegida.jsx';
 
 export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/portal" element={<Portal />} />
       <Route
         path="/"
         element={

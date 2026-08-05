@@ -16,6 +16,7 @@ const notificacionRoutes = require('./notificacionRoutes');
 const auditoriaRoutes = require('./auditoriaRoutes');
 const configuracionRoutes = require('./configuracionRoutes');
 const respaldoRoutes = require('./respaldoRoutes');
+const portalRoutes = require('./portalRoutes');
 
 const router = express.Router();
 
@@ -40,6 +41,7 @@ router.use('/notificaciones', notificacionRoutes);  // Fase 4: Módulo 17
 router.use('/auditoria', auditoriaRoutes);           // Fase 5: Módulos 18, 21
 router.use('/configuracion', configuracionRoutes);  // Fase 5: Módulo 19
 router.use('/respaldos', respaldoRoutes);            // Fase 5: Módulo 20
+router.use('/portal', portalRoutes);                  // Fase 6: Portal del voluntario/tutor
 
 // Los siguientes módulos se irán agregando en las próximas fases:
 // Fase 6: firma electrónica, generación de documentos, portal del voluntario/tutor, multi-asociación
