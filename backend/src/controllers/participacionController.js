@@ -9,7 +9,10 @@ const ParticipacionController = {
     try {
       const { voluntarioId } = req.body;
       if (!voluntarioId) return res.status(400).json({ error: 'voluntarioId es obligatorio.' });
-      const participacion = await ParticipacionModel.inscribir(req.params.actividadId, voluntarioId);
+      const { participacion, yaExistia } = await ParticipacionModel.inscribir(req.params.actividadId, voluntarioId);
+      if (yaExistia) {
+        return res.status(409).json({ error: 'Este voluntario ya estaba inscrito en la actividad.', participacion });
+      }
       return res.status(201).json({ participacion });
     } catch (err) {
       return next(err);

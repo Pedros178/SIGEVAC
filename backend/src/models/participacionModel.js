@@ -9,12 +9,12 @@ const ParticipacionModel = {
        RETURNING *`,
       [actividadId, voluntarioId]
     );
-    if (rows[0]) return rows[0];
+    if (rows[0]) return { participacion: rows[0], yaExistia: false };
     const existente = await query(
       `SELECT * FROM participaciones WHERE actividad_id = $1 AND voluntario_id = $2`,
       [actividadId, voluntarioId]
     );
-    return existente.rows[0];
+    return { participacion: existente.rows[0], yaExistia: true };
   },
 
   async listarPorActividad(actividadId) {

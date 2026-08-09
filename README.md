@@ -156,6 +156,24 @@ Todo el flujo de esta fase (crear un voluntario y verificar que aparece en audit
 
 Todo el flujo de esta fase (generar un documento desde plantilla y verificar el PDF resultante → firmar un documento y recuperar la firma → solicitar acceso al portal, consultar el expediente propio y subir un documento → verificar que el portal rechaza el acceso sin token y el intento de subir un documento ajeno) fue probado de extremo a extremo contra PostgreSQL real.
 
+## Pruebas automatizadas
+
+El backend cuenta con una suite de pruebas automatizadas con **Jest** y **Supertest**, ejecutada contra una base de datos PostgreSQL real y aislada (`sigevac_jest`), nunca contra la base de datos de desarrollo.
+
+```bash
+cd backend
+npm test              # corre toda la suite
+npm run test:coverage # corre la suite y genera reporte de cobertura (texto + HTML en /coverage)
+```
+
+**Cobertura actual: 64 pruebas, 100% pasando — 67% de sentencias / 69% de líneas cubiertas.**
+
+- **Pruebas unitarias** (`tests/unit/`): funciones puras sin dependencia de base de datos — hashing y comparación de contraseñas, generación/verificación de JWT (access, refresh y token de portal), y los tres formatos de exportación de reportes (CSV, Excel, PDF).
+- **Pruebas de integración** (`tests/integration/`): peticiones HTTP reales contra la API completa (Supertest + Express), cubriendo autenticación, RBAC, registro de voluntarios y expediente automático, gestor de archivos y semáforo, actividades/horas de servicio/credencial QR, reportes, configuración, notificaciones, y los diferenciadores de la Fase 6 (plantillas, firma electrónica y Portal). Incluye la prueba de seguridad más crítica del sistema: **un voluntario del Portal no puede subir documentos al expediente de otro voluntario**.
+- La base de datos de pruebas se recrea desde cero en cada corrida (`globalSetup`), aplicando el esquema completo y los seeds, con un usuario `super_admin` de pruebas con contraseña conocida.
+
+Durante la construcción de esta suite se encontró y corrigió un bug real: `POST /api/actividades/:id/participaciones` permitía inscribir dos veces al mismo voluntario a la misma actividad sin avisar (la inserción con `ON CONFLICT DO NOTHING` devolvía silenciosamente el registro existente). Se corrigió para responder `409 Conflict` con un mensaje claro.
+
 ## Roadmap de módulos (23 totales, ver especificación completa)
 
 El esquema de base de datos (`schema.sql`) ya contempla las tablas de **todos** los módulos (voluntarios, tutores, expedientes, documentos, archivos, actividades, participaciones, asistencias, horas de servicio, credenciales, QR, notificaciones, auditoría, bitácora, configuración, respaldos), para que cada fase futura solo agregue modelos/controladores/rutas sin migrar el esquema desde cero.
