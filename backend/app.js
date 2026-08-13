@@ -10,6 +10,11 @@ const { registrarTrazabilidad } = require('./src/middlewares/trazabilidad');
 
 const app = express();
 
+// Necesario en producción: Render (y la mayoría de los PaaS) colocan la app
+// detrás de un proxy inverso. Sin esto, express-rate-limit y req.ip verían
+// la IP interna del proxy en vez de la IP real del cliente.
+app.set('trust proxy', 1);
+
 app.use(helmet());
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',

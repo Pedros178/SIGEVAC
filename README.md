@@ -54,6 +54,9 @@ sigevac/
 
 ## Puesta en marcha
 
+> ¿Buscas desplegar SIGEVAC en producción con una URL pública? Ve la guía completa en [DEPLOY.md](./DEPLOY.md) (Supabase + Render, 100% gratuito, sin tarjeta de crédito).
+
+
 ### 1. Base de datos
 
 ```bash
