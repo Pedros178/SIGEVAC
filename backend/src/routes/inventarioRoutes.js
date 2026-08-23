@@ -1,0 +1,10 @@
+const express = require('express');
+const controller = require('../controllers/inventarioController');
+const { autenticar } = require('../middlewares/auth');
+const { requiereRol } = require('../middlewares/permisos');
+const router = express.Router();
+router.use(autenticar, requiereRol('super_admin'));
+router.get('/', controller.listar);
+router.post('/', controller.crear);
+router.post('/:id/movimientos', (req, res, next) => controller.movimiento(Object.assign(req, { body: { ...req.body, articuloId: req.params.id } }), res, next));
+module.exports = router;

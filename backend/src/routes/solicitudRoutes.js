@@ -1,0 +1,10 @@
+const express = require('express');
+const controller = require('../controllers/solicitudController');
+const { autenticar } = require('../middlewares/auth');
+const { requiereRol } = require('../middlewares/permisos');
+const router = express.Router();
+router.post('/', controller.crear);
+router.use(autenticar, requiereRol('super_admin'));
+router.get('/', controller.listar);
+router.patch('/:id/estado', controller.actualizarEstado);
+module.exports = router;

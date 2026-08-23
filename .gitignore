@@ -1,0 +1,13 @@
+node_modules/
+
+.env
+.env.*
+!.env.example
+!.env.test.example
+
+frontend/dist/
+backend/uploads/*
+backend/backups/*
+
+coverage/
+*.log
