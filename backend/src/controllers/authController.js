@@ -1,0 +1,356 @@
+const UsuarioModel = require('../models/usuarioModel');
+const SesionModel = require('../models/sesionModel');
+const TokenRecuperacionModel = require('../models/tokenRecuperacionModel');
+const { hashPassword, compararPassword, generarTokenSeguro, hashSha256 } = require('../utils/password');
+const { enviarCorreo } = require('../utils/email');
+const { authenticator } = require('otplib');
+const QRCode = require('qrcode');
+const {
+  generarAccessToken,
+  generarRefreshToken,
+  verificarRefreshToken,
+  generarToken2FA,
+  verificarToken2FA,
+} = require('../utils/jwt');
+
+const MAX_INTENTOS = parseInt(process.env.MAX_INTENTOS_FALLIDOS || '5', 10);
+const MINUTOS_BLOQUEO = parseInt(process.env.BLOQUEO_MINUTOS || '15', 10);
+const REFRESH_DIAS = 7;
+
+/**
+ * Arma el objeto "usuario" que viaja en las respuestas de auth y en el
+ * payload del JWT. Incluye:
+ *  - roles y permisos (para que el frontend pueda mostrar/ocultar UI
+ *    de forma consistente con lo que el backend realmente autoriza)
+ *  - asociaciones: todas las asociaciones a las que pertenece (multi-asociación)
+ *  - asociacion_id: la asociación ACTIVA de esta sesión (una de las anteriores)
+ *
+ * `asociacionActivaId`, si se indica, fuerza cuál usar como activa (se
+ * valida antes en el llamador); si no se indica, se usa la predeterminada
+ * del usuario.
+ */
+async function registrarUsuarioBase(usuario, asociacionActivaId = null) {
+  const [roles, permisos, asociaciones] = await Promise.all([
+    UsuarioModel.obtenerRoles(usuario.id),
+    UsuarioModel.obtenerPermisos(usuario.id),
+    UsuarioModel.obtenerAsociaciones(usuario.id),
+  ]);
+
+  let asociacionActiva = asociacionActivaId
+    ? asociaciones.find((a) => a.id === asociacionActivaId)
+    : asociaciones.find((a) => a.es_predeterminada) || asociaciones[0];
+
+  if (!asociacionActiva) {
+    // Respaldo para datos previos a multi-asociación (sin filas en usuario_asociaciones)
+    const predeterminada = await UsuarioModel.obtenerAsociacionPredeterminada(usuario.id);
+    asociacionActiva = predeterminada ? { id: predeterminada.id, nombre: predeterminada.nombre } : null;
+  }
+
+  return {
+    id: usuario.id,
+    nombre: usuario.nombre,
+    correo: usuario.correo,
+    asociacion_id: asociacionActiva?.id || null,
+    asociacion_nombre: asociacionActiva?.nombre || null,
+    asociaciones,
+    roles,
+    permisos,
+    two_factor_activo: !!usuario.two_factor_activo,
+  };
+}
+
+async function emitirSesion(usuario, req) {
+  await UsuarioModel.registrarLoginExitoso(usuario.id);
+  const usuarioConRoles = await registrarUsuarioBase(usuario);
+  const accessToken = generarAccessToken(usuarioConRoles);
+  const refreshToken = generarRefreshToken(usuarioConRoles);
+  const expiraEn = new Date(Date.now() + REFRESH_DIAS * 24 * 60 * 60 * 1000);
+  await SesionModel.crear({
+    usuarioId: usuario.id,
+    refreshTokenHash: hashSha256(refreshToken),
+    ip: req.ip,
+    userAgent: req.headers['user-agent'] || null,
+    expiraEn,
+  });
+  return { usuario: usuarioConRoles, access_token: accessToken, refresh_token: refreshToken };
+}
+
+const AuthController = {
+  /**
+   * POST /api/auth/login
+   */
+  async login(req, res, next) {
+    try {
+      const { correo, password } = req.body;
+      if (!correo || !password) {
+        return res.status(400).json({ error: 'Correo y contraseña son obligatorios.' });
+      }
+
+      const usuario = await UsuarioModel.buscarPorCorreo(correo.toLowerCase().trim());
+      if (!usuario) {
+        return res.status(401).json({ error: 'Credenciales inválidas.' });
+      }
+
+      if (!usuario.activo) {
+        return res.status(403).json({ error: 'Tu cuenta está desactivada. Contacta al administrador.' });
+      }
+
+      if (usuario.bloqueado_hasta && new Date(usuario.bloqueado_hasta) > new Date()) {
+        return res.status(423).json({
+          error: `Cuenta bloqueada temporalmente por múltiples intentos fallidos. Intenta después de ${new Date(usuario.bloqueado_hasta).toLocaleTimeString('es-MX')}.`,
+        });
+      }
+
+      const passwordValido = await compararPassword(password, usuario.password_hash);
+      if (!passwordValido) {
+        const resultado = await UsuarioModel.registrarIntentoFallido(usuario.id, MAX_INTENTOS, MINUTOS_BLOQUEO);
+        return res.status(401).json({
+          error: 'Credenciales inválidas.',
+          intentos_restantes: Math.max(0, MAX_INTENTOS - resultado.intentos_fallidos),
+        });
+      }
+
+      if (usuario.two_factor_activo) {
+        return res.json({ requiere_2fa: true, desafio_2fa: generarToken2FA(usuario.id) });
+      }
+
+      return res.json(await emitirSesion(usuario, req));
+    } catch (err) {
+      return next(err);
+    }
+  },
+
+  async completarLogin2FA(req, res, next) {
+    try {
+      const { desafio_2fa: desafio, codigo } = req.body;
+      if (!desafio || !codigo || !/^\d{6}$/.test(String(codigo))) {
+        return res.status(400).json({ error: 'Desafío y código 2FA de seis dígitos son obligatorios.' });
+      }
+      const payload = verificarToken2FA(desafio);
+      const usuario = await UsuarioModel.buscarSeguridadPorId(payload.usuarioId);
+      if (!usuario?.activo || !usuario.two_factor_activo || !usuario.two_factor_secret) {
+        return res.status(401).json({ error: 'No se pudo validar el segundo factor.' });
+      }
+      const esValido = authenticator.verify({ token: String(codigo), secret: usuario.two_factor_secret });
+      if (!esValido) return res.status(401).json({ error: 'Código 2FA inválido o expirado.' });
+      return res.json(await emitirSesion(usuario, req));
+    } catch (err) {
+      if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
+        return res.status(401).json({ error: 'El desafío 2FA expiró. Inicia sesión nuevamente.' });
+      }
+      return next(err);
+    }
+  },
+
+  async preparar2FA(req, res, next) {
+    try {
+      const usuario = await UsuarioModel.buscarSeguridadPorId(req.usuario.id);
+      if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado.' });
+      const secreto = authenticator.generateSecret();
+      await UsuarioModel.guardarConfiguracion2FA(usuario.id, secreto, false);
+      const uri = authenticator.keyuri(usuario.correo, 'SIGEVAC', secreto);
+      return res.json({ secreto, qr: await QRCode.toDataURL(uri) });
+    } catch (err) { return next(err); }
+  },
+
+  async activar2FA(req, res, next) {
+    try {
+      const usuario = await UsuarioModel.buscarSeguridadPorId(req.usuario.id);
+      if (!usuario?.two_factor_secret) return res.status(400).json({ error: 'Primero solicita la configuración 2FA.' });
+      const esValido = authenticator.verify({ token: String(req.body.codigo || ''), secret: usuario.two_factor_secret });
+      if (!esValido) return res.status(400).json({ error: 'Código 2FA inválido.' });
+      await UsuarioModel.guardarConfiguracion2FA(usuario.id, usuario.two_factor_secret, true);
+      return res.json({ mensaje: 'Autenticación de dos factores activada.' });
+    } catch (err) { return next(err); }
+  },
+
+  async desactivar2FA(req, res, next) {
+    try {
+      const usuario = await UsuarioModel.buscarSeguridadPorId(req.usuario.id);
+      const esValido = authenticator.verify({ token: String(req.body.codigo || ''), secret: usuario?.two_factor_secret || '' });
+      if (!esValido) return res.status(400).json({ error: 'Código 2FA inválido.' });
+      await UsuarioModel.guardarConfiguracion2FA(req.usuario.id, null, false);
+      return res.json({ mensaje: 'Autenticación de dos factores desactivada.' });
+    } catch (err) { return next(err); }
+  },
+
+  /**
+   * POST /api/auth/refresh
+   */
+  async refresh(req, res, next) {
+    try {
+      const { refresh_token: refreshToken } = req.body;
+      if (!refreshToken) {
+        return res.status(400).json({ error: 'Falta el refresh_token.' });
+      }
+
+      let payload;
+      try {
+        payload = verificarRefreshToken(refreshToken);
+      } catch {
+        return res.status(401).json({ error: 'Refresh token inválido o expirado.' });
+      }
+
+      const sesion = await SesionModel.buscarPorHash(hashSha256(refreshToken));
+      if (!sesion) {
+        return res.status(401).json({ error: 'Sesión no encontrada o revocada.' });
+      }
+
+      const usuario = await UsuarioModel.buscarPorId(payload.sub);
+      if (!usuario || !usuario.activo) {
+        return res.status(401).json({ error: 'Usuario no válido.' });
+      }
+
+      const usuarioConRoles = await registrarUsuarioBase(usuario, payload.asociacion_id || null);
+      const nuevoAccessToken = generarAccessToken(usuarioConRoles);
+
+      return res.json({ usuario: usuarioConRoles, access_token: nuevoAccessToken });
+    } catch (err) {
+      return next(err);
+    }
+  },
+
+  /**
+   * POST /api/auth/logout
+   */
+  async logout(req, res, next) {
+    try {
+      const { refresh_token: refreshToken } = req.body;
+      if (refreshToken) {
+        const sesion = await SesionModel.buscarPorHash(hashSha256(refreshToken));
+        if (sesion) await SesionModel.revocar(sesion.id);
+      }
+      return res.status(204).send();
+    } catch (err) {
+      return next(err);
+    }
+  },
+
+  /**
+   * POST /api/auth/forgot-password
+   */
+  async forgotPassword(req, res, next) {
+    try {
+      const { correo } = req.body;
+      if (!correo) return res.status(400).json({ error: 'El correo es obligatorio.' });
+
+      const usuario = await UsuarioModel.buscarPorCorreo(correo.toLowerCase().trim());
+      // Por seguridad, siempre respondemos igual exista o no el usuario.
+      if (usuario) {
+        const { tokenPlano, tokenHash } = generarTokenSeguro();
+        const expiraEn = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
+        await TokenRecuperacionModel.crear({ usuarioId: usuario.id, tokenHash, expiraEn });
+
+        const enlace = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${encodeURIComponent(tokenPlano)}`;
+        const resultado = await enviarCorreo({
+          to: correo,
+          subject: 'SIGEVAC — Recuperación de contraseña',
+          html: `<p>Hola,</p><p>Solicitaste cambiar tu contraseña de SIGEVAC. Usa este enlace, válido por una hora:</p><p><a href="${enlace}">${enlace}</a></p><p>Si no solicitaste este cambio, puedes ignorar este mensaje.</p>`,
+        });
+        if (process.env.NODE_ENV === 'development' && !resultado.enviado) {
+          console.log(`[DEV] Token de recuperación para ${correo}: ${tokenPlano}`);
+        }
+      }
+
+      return res.json({ mensaje: 'Si el correo existe en el sistema, se enviaron instrucciones de recuperación.' });
+    } catch (err) {
+      return next(err);
+    }
+  },
+
+  /**
+   * POST /api/auth/reset-password
+   */
+  async resetPassword(req, res, next) {
+    try {
+      const { token, nueva_password: nuevaPassword } = req.body;
+      if (!token || !nuevaPassword) {
+        return res.status(400).json({ error: 'Token y nueva contraseña son obligatorios.' });
+      }
+      if (nuevaPassword.length < 8) {
+        return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres.' });
+      }
+
+      const tokenHash = hashSha256(token);
+      const registro = await TokenRecuperacionModel.buscarValido(tokenHash);
+      if (!registro) {
+        return res.status(400).json({ error: 'Token inválido o expirado.' });
+      }
+
+      const passwordHash = await hashPassword(nuevaPassword);
+      await UsuarioModel.actualizarPassword(registro.usuario_id, passwordHash);
+      await TokenRecuperacionModel.marcarUsado(registro.id);
+      await SesionModel.revocarTodasDeUsuario(registro.usuario_id);
+
+      return res.json({ mensaje: 'Contraseña actualizada correctamente. Inicia sesión de nuevo.' });
+    } catch (err) {
+      return next(err);
+    }
+  },
+
+  /**
+   * GET /api/auth/me
+   */
+  async me(req, res, next) {
+    try {
+      const usuario = await UsuarioModel.buscarPorId(req.usuario.id);
+      if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado.' });
+      const usuarioConRoles = await registrarUsuarioBase(usuario, req.usuario.asociacionId);
+      return res.json({ usuario: usuarioConRoles });
+    } catch (err) {
+      return next(err);
+    }
+  },
+
+  /**
+   * POST /api/auth/asociacion-activa
+   * Multi-asociación (diferenciador): permite a un usuario que pertenece a
+   * más de una asociación civil cambiar cuál está usando en la sesión
+   * actual, sin tener que volver a iniciar sesión. Emite un access token
+   * y un refresh token nuevos con la asociación elegida (y revoca la
+   * sesión anterior), para que la asociación activa se mantenga incluso
+   * después de que el access token expire y el frontend haga /refresh.
+   */
+  async cambiarAsociacionActiva(req, res, next) {
+    try {
+      const { asociacion_id: asociacionId, refresh_token: refreshTokenActual } = req.body;
+      if (!asociacionId) {
+        return res.status(400).json({ error: 'Falta asociacion_id.' });
+      }
+
+      const pertenece = await UsuarioModel.perteneceAAsociacion(req.usuario.id, asociacionId);
+      if (!pertenece) {
+        return res.status(403).json({ error: 'No perteneces a esa asociación.' });
+      }
+
+      const usuario = await UsuarioModel.buscarPorId(req.usuario.id);
+      if (!usuario || !usuario.activo) {
+        return res.status(401).json({ error: 'Usuario no válido.' });
+      }
+
+      const usuarioConRoles = await registrarUsuarioBase(usuario, asociacionId);
+      const accessToken = generarAccessToken(usuarioConRoles);
+      const refreshToken = generarRefreshToken(usuarioConRoles);
+
+      if (refreshTokenActual) {
+        const sesionActual = await SesionModel.buscarPorHash(hashSha256(refreshTokenActual));
+        if (sesionActual) await SesionModel.revocar(sesionActual.id);
+      }
+
+      const expiraEn = new Date(Date.now() + REFRESH_DIAS * 24 * 60 * 60 * 1000);
+      await SesionModel.crear({
+        usuarioId: usuario.id,
+        refreshTokenHash: hashSha256(refreshToken),
+        ip: req.ip,
+        userAgent: req.headers['user-agent'] || null,
+        expiraEn,
+      });
+
+      return res.json({ usuario: usuarioConRoles, access_token: accessToken, refresh_token: refreshToken });
+    } catch (err) {
+      return next(err);
+    }
+  },
+};
+
+module.exports = AuthController;
