@@ -34,6 +34,19 @@ router.get('/health', async (req, res) => {
   }
 });
 
+router.get('/catalogos/ubicaciones', async (req, res, next) => {
+  try {
+    const { rows } = await query(
+      `SELECT e.id AS estado_id, e.nombre AS estado, m.id AS municipio_id, m.nombre AS municipio
+       FROM estados_mx e LEFT JOIN municipios m ON m.estado_id = e.id
+       ORDER BY e.nombre, m.nombre`
+    );
+    return res.json({ ubicaciones: rows });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 router.use('/docs', swaggerUi.serve, swaggerUi.setup(openapiSpec)); // Módulo 22: documentación de la API
 
 router.use('/auth', authRoutes);

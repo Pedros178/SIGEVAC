@@ -79,6 +79,7 @@ const AsociacionController = {
       const asociacion = await AsociacionModel.crear(req.body);
       return res.status(201).json({ asociacion });
     } catch (err) {
+      if (err.status === 409) return res.status(409).json({ error: err.message });
       return next(err);
     }
   },

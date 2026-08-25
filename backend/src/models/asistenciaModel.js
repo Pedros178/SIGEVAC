@@ -11,7 +11,9 @@ const AsistenciaModel = {
     const existente = await this.obtenerPorParticipacion(participacionId);
     if (existente) return existente;
     const { rows } = await query(
-      `INSERT INTO asistencias (participacion_id, hora_entrada) VALUES ($1, now()) RETURNING *`,
+      `INSERT INTO asistencias (participacion_id, hora_entrada) VALUES ($1, now())
+       ON CONFLICT (participacion_id) DO UPDATE SET participacion_id = EXCLUDED.participacion_id
+       RETURNING *`,
       [participacionId]
     );
     return rows[0];

@@ -4,7 +4,7 @@
 
 Plataforma web para administrar de forma segura el registro de voluntarios, expedientes digitales, documentación, actividades, horas de servicio, reportes y estadísticas de asociaciones civiles.
 
-Proyecto de residencia — Instituto Tecnológico de Tehuacán (ITT), en colaboración con la Asociación Juvenil "Sueños de Comedia", A.C.
+Proyecto de residencia — Instituto Tecnológico de Tehuacán (ITT), en colaboración con la Asociación Juvenil "Sueños de Comedia", A.C., con sede en Huamantla, Tlaxcala.
 
 ## Stack tecnológico
 
@@ -20,7 +20,7 @@ Proyecto de residencia — Instituto Tecnológico de Tehuacán (ITT), en colabor
 - Consulta pública: `/certificado?codigo=CODIGO_QR`.
 - CI con GitHub Actions para ejecutar pruebas del backend y build de producción del frontend.
 
-## Estado del proyecto — 6 de 6 fases completadas ✅
+## Estado del proyecto — 8 de 8 fases completadas ✅
 
 | Fase | Contenido | Estado |
 |------|-----------|--------|
@@ -30,6 +30,8 @@ Proyecto de residencia — Instituto Tecnológico de Tehuacán (ITT), en colabor
 | **4** | Dashboard, Reportes, Notificaciones | ✅ Implementado |
 | **5** | Auditoría, Bitácora, Configuración, Respaldo, API docs | ✅ Implementado |
 | **6** | Firma electrónica, generación de documentos, portales, multi-asociación | ✅ Implementado |
+| **7** | Multi-asociación real, alertas, ficha PDF/Excel, fotografía y OCR | ✅ Implementado |
+| **8** | Inventario, cuotas, solicitudes públicas y 2FA | ✅ Implementado |
 
 ## Estructura del repositorio
 
@@ -79,7 +81,7 @@ cp .env.example .env
 # Edita .env con tu DATABASE_URL y secretos JWT
 
 npm install
-npm run db:setup     # Crea las 39 tablas
+npm run db:setup     # Crea el esquema y aplica las migraciones
 npm run db:seed      # Roles, permisos, catálogos, asociación y usuario super_admin
 
 npm run dev           # http://localhost:4000
@@ -107,9 +109,11 @@ npm run dev            # http://localhost:5173
 - Control de acceso por rol (`requiereRol`) y por permiso granular (`requierePermiso`)
 - 6 roles predefinidos: `super_admin`, `presidente`, `coordinador`, `capturista`, `supervisor`, `consulta`
 
+La asociación inicial se configura como **Asociación Juvenil "Sueños de Comedia", A.C.**, con municipio **Huamantla** y estado **Tlaxcala**. Al registrar un voluntario se pueden escribir libremente su estado y municipio; el sistema reutiliza o crea las referencias del catálogo.
+
 ## Fase 2 — Voluntarios, Expedientes y Gestor de archivos (Módulos 4–9)
 
-- **Registro de voluntarios** con folio automático (`SC-AAAA-0001`), detección de mayoría/minoría de edad y datos de tutor obligatorios para menores (Módulo 6)
+- **Registro de voluntarios** con folio automático (`SC-AAAA-0001`), edad calculada desde la fecha de nacimiento, teléfonos fijo/celular, estado y municipio, detección de mayoría/minoría de edad y datos de tutor obligatorios para menores (Módulo 6)
 - **Clasificación** por tipo de voluntario (Módulo 5): mayor/menor, servicio social, residencia, temporal, permanente, coordinador, instructor
 - **Expediente digital automático**: al registrar un voluntario, el sistema crea su expediente y las filas de documentos requeridos según aplique (mayor/menor/ambos)
 - **Gestor de archivos con versionado** (Módulo 8): cada carga de documento genera una nueva versión, conservando el historial completo
@@ -151,11 +155,11 @@ Todo el flujo de esta fase (consultar dashboard → generar cada reporte en sus 
   - **Bitácora** (Módulo 21): toda petición autenticada, exitosa o no.
   - **Auditoría** (Módulo 18): solo operaciones que modifican datos (POST/PUT/PATCH/DELETE) que tuvieron éxito, con el cuerpo de la petición sanitizado (contraseñas y tokens nunca se registran).
 - **Configuración** (Módulo 19): pares clave/valor por asociación, editables desde el panel de administración.
-- **Respaldo** (Módulo 20): genera un dump real de PostgreSQL con `pg_dump` (formato plano), lo registra en la tabla `respaldos` y permite descargarlo — funcionalidad reservada al rol `super_admin`.
+- **Respaldo** (Módulo 20): genera un dump real de PostgreSQL con `pg_dump` (formato plano), lo registra en la tabla `respaldos` y permite descargarlo — funcionalidad reservada al rol `super_admin`. El servidor debe tener `pg_dump` instalado y disponible en el `PATH`.
 - **Documentación de la API** (Módulo 22): especificación OpenAPI 3.0 servida con Swagger UI en `/api/docs`, cubriendo los endpoints de las Fases 1 a 5.
 - Frontend: página de Administración con pestañas para Auditoría, Bitácora, Configuración y Respaldos (con descarga directa del dump).
 
-Todo el flujo de esta fase (crear un voluntario y verificar que aparece en auditoría y bitácora automáticamente → establecer y listar configuración → generar un respaldo real con `pg_dump` y descargarlo → verificar que Swagger UI responde → confirmar que un usuario con rol `coordinador` recibe 403 al intentar generar respaldos o ver auditoría) fue probado de extremo a extremo contra PostgreSQL real.
+Todo el flujo de esta fase fue probado contra PostgreSQL real. Para generar respaldos en Windows o Linux, instala las herramientas cliente de PostgreSQL y verifica `pg_dump --version` antes de usar el botón de respaldo.
 
 ## Fase 6 — Diferenciadores (firma electrónica, plantillas, portal, multi-asociación)
 
@@ -205,7 +209,7 @@ npm run test:coverage # corre la suite y genera reporte de cobertura (texto + HT
 
 Durante la construcción de esta suite se encontró y corrigió un bug real: `POST /api/actividades/:id/participaciones` permitía inscribir dos veces al mismo voluntario a la misma actividad sin avisar (la inserción con `ON CONFLICT DO NOTHING` devolvía silenciosamente el registro existente). Se corrigió para responder `409 Conflict` con un mensaje claro.
 
-> **Nota de cobertura:** las pruebas de Fase 7 (`multiAsociacion.test.js`, `vigenciaYFicha.test.js`) y Fase 8 (`dosFactor.test.js`, `inventarioCuotasSolicitudes.test.js`) se agregaron junto con su código correspondiente y no se han ejecutado todavía contra una base de datos real en este entorno de trabajo — se revisaron a mano contra los controladores y modelos reales, pero conviene correr `npm test` tú mismo antes de confiar en ellas para la defensa.
+Las pruebas de integración recrean una base aislada, aplican `schema.sql` y todas las migraciones, y verifican los flujos principales, incluido el aislamiento entre asociaciones.
 
 ## Fase 8 — Inventario, Cuotas, Solicitudes y 2FA (revisión y correcciones)
 

@@ -6,8 +6,9 @@ const ReporteModel = {
   async voluntariosActivos(asociacionId) {
     const { rows } = await query(
       `SELECT v.numero_voluntario AS folio, ${NOMBRE_COMPLETO} AS nombre, v.curp,
-              CASE WHEN v.es_menor_edad THEN 'Menor de edad' ELSE 'Mayor de edad' END AS clasificacion_edad,
-              v.telefono, v.correo, to_char(v.creado_en, 'YYYY-MM-DD') AS fecha_registro
+              EXTRACT(YEAR FROM age(CURRENT_DATE, v.fecha_nacimiento))::int AS edad,
+              COALESCE(NULLIF(v.telefono_celular, ''), NULLIF(v.telefono_fijo, ''), NULLIF(v.telefono, '')) AS telefono,
+              v.correo, to_char(v.creado_en, 'YYYY-MM-DD') AS fecha_registro
        FROM voluntarios v WHERE v.asociacion_id = $1 AND v.activo = true ORDER BY v.creado_en DESC`,
       [asociacionId]
     );
@@ -15,7 +16,7 @@ const ReporteModel = {
       titulo: 'Voluntarios activos',
       columnas: [
         { key: 'folio', label: 'Folio' }, { key: 'nombre', label: 'Nombre' }, { key: 'curp', label: 'CURP' },
-        { key: 'clasificacion_edad', label: 'Edad' }, { key: 'telefono', label: 'Teléfono' },
+        { key: 'edad', label: 'Edad' }, { key: 'telefono', label: 'Teléfono' },
         { key: 'correo', label: 'Correo' }, { key: 'fecha_registro', label: 'Registrado' },
       ],
       filas: rows,
@@ -139,9 +140,11 @@ const ReporteModel = {
 
   async voluntariosPorMunicipio(asociacionId) {
     const { rows } = await query(
-      `SELECT COALESCE(m.nombre, 'Sin especificar') AS municipio, COUNT(v.id)::int AS total
-       FROM voluntarios v LEFT JOIN municipios m ON m.id = v.municipio_id
-       WHERE v.asociacion_id = $1 GROUP BY m.nombre ORDER BY total DESC`,
+      `SELECT COALESCE(m.nombre, a.municipio, 'Sin especificar') AS municipio, COUNT(v.id)::int AS total
+       FROM voluntarios v
+       JOIN asociaciones a ON a.id = v.asociacion_id
+       LEFT JOIN municipios m ON m.id = v.municipio_id
+      WHERE v.asociacion_id = $1 GROUP BY m.nombre, a.municipio ORDER BY total DESC`,
       [asociacionId]
     );
     return {
@@ -172,7 +175,8 @@ const ReporteModel = {
 
   async mayores(asociacionId) {
     const { rows } = await query(
-      `SELECT v.numero_voluntario AS folio, ${NOMBRE_COMPLETO} AS nombre, to_char(v.fecha_nacimiento, 'YYYY-MM-DD') AS fecha_nacimiento, v.telefono, v.correo
+      `SELECT v.numero_voluntario AS folio, ${NOMBRE_COMPLETO} AS nombre, to_char(v.fecha_nacimiento, 'YYYY-MM-DD') AS fecha_nacimiento,
+              COALESCE(NULLIF(v.telefono_celular, ''), NULLIF(v.telefono_fijo, ''), NULLIF(v.telefono, '')) AS telefono, v.correo
        FROM voluntarios v WHERE v.asociacion_id = $1 AND v.es_menor_edad = false ORDER BY nombre`,
       [asociacionId]
     );

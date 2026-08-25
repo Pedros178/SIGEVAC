@@ -12,7 +12,7 @@ const InventarioController = {
     try {
       const cantidad = Number(req.body.cantidad);
       if (!['entrada', 'salida'].includes(req.body.tipo) || !Number.isInteger(cantidad) || cantidad < 1) return res.status(400).json({ error: 'tipo y cantidad válida son obligatorios.' });
-      return res.status(201).json({ movimiento: await InventarioModel.movimiento({ ...req.body, cantidad, usuarioId: req.usuario.id }) });
+      return res.status(201).json({ movimiento: await InventarioModel.movimiento({ ...req.body, cantidad, usuarioId: req.usuario.id, asociacionId: req.usuario.asociacionId }) });
     } catch (err) { return next(err); }
   },
 };

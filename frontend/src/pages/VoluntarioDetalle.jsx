@@ -196,7 +196,10 @@ export default function VoluntarioDetalle() {
     try {
       const extension = accion === 'xlsx' ? 'xlsx' : 'pdf';
       const respuesta = await api.get(`/voluntarios/${id}/ficha.${extension}`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([respuesta.data]));
+      const tipoContenido = respuesta.headers['content-type'] || (extension === 'pdf'
+        ? 'application/pdf'
+        : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      const url = window.URL.createObjectURL(new Blob([respuesta.data], { type: tipoContenido }));
 
       if (accion === 'imprimir') {
         window.open(url, '_blank');

@@ -13,7 +13,12 @@ function ejecutarPgDump(archivoDestino) {
       [process.env.DATABASE_URL, '-F', 'p', '-f', archivoDestino, '--no-owner', '--no-privileges'],
       { timeout: 60_000 },
       (error, _stdout, stderr) => {
-        if (error) return reject(new Error(stderr || error.message));
+        if (error) {
+          const mensaje = error.code === 'ENOENT'
+            ? 'pg_dump no está instalado o no está disponible en el PATH del servidor.'
+            : (stderr || error.message);
+          return reject(Object.assign(new Error(mensaje), { status: error.code === 'ENOENT' ? 503 : 500 }));
+        }
         return resolve();
       }
     );

@@ -9,11 +9,14 @@ const InventarioModel = {
     const { rows } = await query(`INSERT INTO inventario_articulos (asociacion_id,nombre,descripcion,unidad,minimo) VALUES ($1,$2,$3,$4,$5) RETURNING *`, [asociacionId, nombre, descripcion || null, unidad || 'pieza', minimo || 0]);
     return rows[0];
   },
-  async movimiento({ articuloId, usuarioId, tipo, cantidad, motivo }) {
+  async movimiento({ articuloId, asociacionId, usuarioId, tipo, cantidad, motivo }) {
     const client = await getClient();
     try {
       await client.query('BEGIN');
-      const { rows } = await client.query(`SELECT * FROM inventario_articulos WHERE id = $1 FOR UPDATE`, [articuloId]);
+      const { rows } = await client.query(
+        `SELECT * FROM inventario_articulos WHERE id = $1 AND asociacion_id = $2 FOR UPDATE`,
+        [articuloId, asociacionId]
+      );
       const articulo = rows[0];
       if (!articulo) throw Object.assign(new Error('Artículo no encontrado.'), { status: 404 });
       const delta = tipo === 'entrada' ? cantidad : -cantidad;

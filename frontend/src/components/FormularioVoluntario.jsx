@@ -19,7 +19,7 @@ export default function FormularioVoluntario({ onCreado, onCancelar }) {
     nombre: '', apellidoPaterno: '', apellidoMaterno: '', numeroControl: '', fechaNacimiento: '',
     fechaIngreso: new Date().toISOString().slice(0, 10),
     sexo: '', curp: '', correo: '', telefono: '', telefonoFijo: '', telefonoCelular: '', colonia: '',
-    discapacidad: '', enfermedadCronica: '', direccion: '',
+    discapacidad: '', enfermedadCronica: '', direccion: '', estado: '', municipio: '',
     contactoEmergenciaNombre: '', contactoEmergenciaDomicilio: '', contactoEmergenciaColonia: '',
     contactoEmergenciaMunicipio: '', contactoEmergenciaEstado: '', contactoEmergenciaTelefonoFijo: '',
     contactoEmergenciaTelefonoCelular: '', contactoEmergenciaCorreo: '', contactoEmergenciaParentesco: '',
@@ -139,6 +139,15 @@ export default function FormularioVoluntario({ onCreado, onCancelar }) {
         </Campo>
         <Campo etiqueta="Colonia">
           <input className="sg-input" value={form.colonia} onChange={(e) => actualizarCampo('colonia', e.target.value)} />
+        </Campo>
+      </div>
+
+      <div style={styles.fila}>
+        <Campo etiqueta="Estado">
+          <input className="sg-input" value={form.estado} onChange={(e) => actualizarCampo('estado', e.target.value)} placeholder="Ej. Puebla" />
+        </Campo>
+        <Campo etiqueta="Municipio">
+          <input className="sg-input" value={form.municipio} onChange={(e) => actualizarCampo('municipio', e.target.value)} placeholder="Ej. Tehuacán" />
         </Campo>
       </div>
 

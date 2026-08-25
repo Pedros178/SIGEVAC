@@ -42,6 +42,16 @@ const AsociacionModel = {
   },
 
   async crear(datos) {
+    const existente = await query(
+      `SELECT id FROM asociaciones WHERE lower(trim(nombre)) = lower(trim($1)) LIMIT 1`,
+      [datos.nombre]
+    );
+    if (existente.rows[0]) {
+      const error = new Error('Ya existe una asociación con ese nombre.');
+      error.status = 409;
+      throw error;
+    }
+
     const { rows } = await query(
       `INSERT INTO asociaciones (nombre, rfc, direccion, municipio, estado, telefono, correo, representante_legal)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,

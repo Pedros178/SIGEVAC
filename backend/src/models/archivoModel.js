@@ -8,12 +8,26 @@ const ArchivoModel = {
     );
     const version = versionRows[0].siguiente;
 
-    const { rows } = await query(
-      `INSERT INTO archivos (documento_id, url, nombre_original, mime_type, tamano_bytes, version, subido_por)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-      [documentoId, url, nombreOriginal, mimeType, tamanoBytes, version, subidoPor || null]
-    );
-    return rows[0];
+    let resultado;
+    try {
+      resultado = await query(
+        `INSERT INTO archivos (documento_id, url, nombre_original, mime_type, tamano_bytes, version, subido_por)
+         VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+        [documentoId, url, nombreOriginal, mimeType, tamanoBytes, version, subidoPor || null]
+      );
+    } catch (err) {
+      if (err.code !== '23505') throw err;
+      const { rows } = await query(
+        `SELECT COALESCE(MAX(version), 0) + 1 AS siguiente FROM archivos WHERE documento_id = $1`,
+        [documentoId]
+      );
+      resultado = await query(
+        `INSERT INTO archivos (documento_id, url, nombre_original, mime_type, tamano_bytes, version, subido_por)
+         VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+        [documentoId, url, nombreOriginal, mimeType, tamanoBytes, rows[0].siguiente, subidoPor || null]
+      );
+    }
+    return resultado.rows[0];
   },
 
   async listarPorDocumento(documentoId) {

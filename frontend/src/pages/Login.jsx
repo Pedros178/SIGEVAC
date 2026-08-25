@@ -90,20 +90,23 @@ export default function Login() {
           </p>
 
           {desafio2FA ? (
-            <label style={styles.etiqueta}>
-              Código de autenticación
-              <input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]{6}"
-                maxLength={6}
-                className="sg-input"
-                value={codigo2FA}
-                onChange={(e) => setCodigo2FA(e.target.value.replace(/\D/g, ''))}
-                required
-                autoFocus
-              />
-            </label>
+            <>
+              <label style={styles.etiqueta}>
+                Código de autenticación
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]{6}"
+                  maxLength={6}
+                  className="sg-input"
+                  value={codigo2FA}
+                  onChange={(e) => setCodigo2FA(e.target.value.replace(/\D/g, ''))}
+                  required
+                  autoFocus
+                />
+              </label>
+              {error && <div style={styles.mensajeError}>{error}</div>}
+            </>
           ) : recuperacionEnviada ? (
             <div style={styles.mensajeExito}>
               Si el correo está registrado, recibirás instrucciones para recuperar tu contraseña.

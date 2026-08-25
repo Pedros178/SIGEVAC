@@ -266,7 +266,8 @@ CREATE TABLE archivos (
     tamano_bytes BIGINT,
     version INTEGER NOT NULL DEFAULT 1,
     subido_por UUID REFERENCES usuarios(id),
-    creado_en TIMESTAMPTZ NOT NULL DEFAULT now()
+    creado_en TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (documento_id, version)
 );
 
 -- ============================================================
@@ -309,7 +310,8 @@ CREATE TABLE asistencias (
     hora_entrada TIMESTAMPTZ,
     hora_salida TIMESTAMPTZ,
     horas_realizadas NUMERIC(6,2),
-    observaciones TEXT
+    observaciones TEXT,
+    UNIQUE (participacion_id)
 );
 
 CREATE TABLE horas_servicio (
@@ -363,7 +365,7 @@ CREATE TABLE notificaciones (
 CREATE TABLE auditoria (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     usuario_id UUID REFERENCES usuarios(id) ON DELETE SET NULL,
-    accion VARCHAR(100) NOT NULL,
+    accion VARCHAR(255) NOT NULL,
     modulo_afectado VARCHAR(80),
     entidad_id UUID,
     detalle JSONB,

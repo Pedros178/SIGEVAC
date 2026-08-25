@@ -29,6 +29,37 @@ const VoluntarioModel = {
       const esMenorEdad = (hoy.getFullYear() - fechaNac.getFullYear()
         - (hoy < new Date(hoy.getFullYear(), fechaNac.getMonth(), fechaNac.getDate()) ? 1 : 0)) < 18;
 
+      let estadoId = datos.estadoId || null;
+      let municipioId = datos.municipioId || null;
+      if (!estadoId && datos.estado?.trim()) {
+        const estadoExistente = await ejecutor.query(
+          'SELECT id FROM estados_mx WHERE lower(nombre) = lower($1) LIMIT 1', [datos.estado.trim()]
+        );
+        if (estadoExistente.rows[0]) {
+          estadoId = estadoExistente.rows[0].id;
+        } else {
+          const nuevoEstado = await ejecutor.query(
+            'INSERT INTO estados_mx (nombre) VALUES ($1) RETURNING id', [datos.estado.trim()]
+          );
+          estadoId = nuevoEstado.rows[0].id;
+        }
+      }
+      if (!municipioId && datos.municipio?.trim() && estadoId) {
+        const municipioExistente = await ejecutor.query(
+          'SELECT id FROM municipios WHERE estado_id = $1 AND lower(nombre) = lower($2) LIMIT 1',
+          [estadoId, datos.municipio.trim()]
+        );
+        if (municipioExistente.rows[0]) {
+          municipioId = municipioExistente.rows[0].id;
+        } else {
+          const nuevoMunicipio = await ejecutor.query(
+            'INSERT INTO municipios (estado_id, nombre) VALUES ($1, $2) RETURNING id',
+            [estadoId, datos.municipio.trim()]
+          );
+          municipioId = nuevoMunicipio.rows[0].id;
+        }
+      }
+
       const { rows } = await ejecutor.query(
         `INSERT INTO voluntarios (
            asociacion_id, numero_voluntario, numero_control, fotografia_url, fecha_ingreso, fecha_baja, nombre, apellido_paterno,
@@ -46,7 +77,7 @@ const VoluntarioModel = {
           datos.curp || null, datos.sexo || null, datos.fechaNacimiento, datos.estadoCivil || null,
           datos.nacionalidad || 'Mexicana', datos.correo || null, datos.telefono || null, datos.telefonoFijo || null,
           datos.telefonoCelular || null, datos.direccion || null, datos.colonia || null, datos.codigoPostal || null,
-          datos.municipioId || null, datos.estadoId || null, datos.tipoSangre || null, datos.alergias || null,
+          municipioId, estadoId, datos.tipoSangre || null, datos.alergias || null,
           datos.discapacidad || null, datos.enfermedadCronica || null, datos.contactoEmergenciaNombre || null,
           datos.contactoEmergenciaTelefono || null, datos.contactoEmergenciaParentesco || null,
           datos.contactoEmergenciaDomicilio || null, datos.contactoEmergenciaColonia || null,

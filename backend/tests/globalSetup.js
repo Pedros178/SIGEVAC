@@ -22,6 +22,12 @@ module.exports = async function globalSetup() {
   const schemaSql = fs.readFileSync(path.join(__dirname, '..', 'database', 'schema.sql'), 'utf8');
   await cliente.query(schemaSql);
 
+  const migrationsDir = path.join(__dirname, '..', 'database', 'migrations');
+  const migrations = fs.readdirSync(migrationsDir).filter((archivo) => archivo.endsWith('.sql')).sort();
+  for (const migracion of migrations) {
+    await cliente.query(fs.readFileSync(path.join(migrationsDir, migracion), 'utf8'));
+  }
+
   // 3. Aplicar los datos semilla (roles, permisos, catálogos, asociación)
   const seedSql = fs.readFileSync(path.join(__dirname, '..', 'database', 'seeds', '001_seed_base.sql'), 'utf8');
   await cliente.query(seedSql);

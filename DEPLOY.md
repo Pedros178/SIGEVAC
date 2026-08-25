@@ -2,7 +2,7 @@
 
 Esta guía usa **Supabase** para la base de datos PostgreSQL y **Render** para el backend (API) y el frontend (sitio estático). Ambos ofrecen un plan gratuito verificado en 2026 que no pide tarjeta de crédito.
 
-> **Nota importante:** estos pasos requieren crear cuentas y hacer clic en paneles web (Supabase, Render, GitHub), algo que Claude no puede ejecutar por ti. Esta guía te da los valores exactos que debes copiar/pegar en cada campo. Si algo no coincide con lo que ves en pantalla o un paso falla, copia el mensaje de error y pégamelo — te ayudo a diagnosticarlo.
+> **Nota importante:** estos pasos requieren crear cuentas y hacer clic en paneles web (Supabase, Render, GitHub). Esta guía te da los valores exactos que debes copiar/pegar en cada campo. Si algo no coincide con lo que ves en pantalla o un paso falla, conserva el mensaje de error para diagnosticarlo.
 
 ## Limitaciones honestas del plan gratuito (impórtalas para tu defensa)
 
@@ -28,6 +28,8 @@ Estas limitaciones son normales en cualquier plan gratuito y **no invalidan el p
    - Se ve así: `postgresql://postgres:[TU-PASSWORD]@db.xxxxxxxxxxxx.supabase.co:5432/postgres`
 5. Ve a **Storage → New bucket**, crea un bucket llamado `sigevac-files` y déjalo **privado**. La `SUPABASE_SERVICE_ROLE_KEY` se obtiene en **Project Settings → API** y solo debe configurarse como secreto en Render.
 
+La asociación inicial de SIGEVAC es **Asociación Juvenil "Sueños de Comedia", A.C.**, con municipio **Huamantla** y estado **Tlaxcala**.
+
 ## Paso 2 — Aplicar el esquema y los seeds a Supabase (desde tu máquina, una sola vez)
 
 En tu computadora, con el repositorio clonado:
@@ -46,11 +48,13 @@ DB_SSL=true
 Luego corre:
 ```bash
 npm install
-npm run db:setup   # crea las tablas en Supabase
+npm run db:setup   # crea el esquema y aplica todas las migraciones
 npm run db:seed    # roles, permisos, catálogos, asociación y super_admin
 ```
 
 Verifica en el panel de Supabase (**Table Editor**) que las tablas aparecieron.
+
+> `npm run db:setup` está pensado para una base vacía. Para una base ya existente, aplica únicamente las migraciones pendientes en orden, sin volver a ejecutar `schema.sql` sobre tablas creadas.
 
 ## Paso 3 — Desplegar el backend en Render
 
@@ -81,6 +85,8 @@ Verifica en el panel de Supabase (**Table Editor**) que las tablas aparecieron.
 | `SUPABASE_URL` | URL del proyecto Supabase |
 | `SUPABASE_SERVICE_ROLE_KEY` | Service role key de Supabase; guárdala solo como secreto en Render |
 | `SUPABASE_STORAGE_BUCKET` | `sigevac-files` (créalo como bucket privado) |
+| `SEED_ADMIN_EMAIL` | Correo del administrador inicial |
+| `SEED_ADMIN_PASSWORD` | Contraseña inicial; usa una cadena segura y entre comillas si contiene `#` |
 | `SMTP_HOST` | Servidor SMTP de tu proveedor de correo |
 | `SMTP_PORT` | `587` (o `465` si tu proveedor usa SSL) |
 | `SMTP_USER` | Cuenta autorizada para enviar correo |
@@ -99,6 +105,8 @@ Verifica en el panel de Supabase (**Table Editor**) que las tablas aparecieron.
 > **WhatsApp opcional:** configura `WHATSAPP_ACCESS_TOKEN` y `WHATSAPP_PHONE_NUMBER_ID` con credenciales de Meta WhatsApp Cloud API. El número debe recibirse en formato internacional y Meta puede exigir plantillas aprobadas para mensajes iniciados por el negocio.
 
 > **Almacenamiento obligatorio para operación completa:** Render Free no conserva `uploads/` entre despliegues. Para producción real, configura un volumen persistente o migra `backend/uploads/` a almacenamiento de objetos (por ejemplo, Supabase Storage/S3) antes de recibir documentos reales.
+
+> **Respaldos:** el botón de respaldos ejecuta `pg_dump` en el servidor. En Render debes usar una imagen/entorno que incluya las herramientas cliente de PostgreSQL y confirmar en los logs que `pg_dump --version` está disponible; si falta, la API responde `503` con un mensaje explicativo.
 
 ## Paso 4 — Desplegar el frontend en Render (sitio estático)
 
@@ -126,6 +134,8 @@ Vuelve al servicio `sigevac-api` en Render → **Environment** → edita `FRONTE
 1. Abre `https://sigevac.onrender.com` (dale 30-60 segundos si es la primera visita).
 2. Inicia sesión con el usuario `super_admin` creado en el Paso 2.
 3. Verifica que el Dashboard cargue indicadores reales.
+4. Registra un voluntario de prueba escribiendo estado y municipio, carga un documento, genera su ficha PDF y verifica un reporte en JSON, CSV y Excel.
+5. Comprueba que un usuario de una asociación no pueda consultar voluntarios, actividades o archivos de otra asociación.
 
 ## (Opcional) Mantener el backend "despierto" durante tu defensa
 
@@ -138,4 +148,24 @@ Un día antes de tu defensa, puedes usar un servicio gratuito como **UptimeRobot
 Todas están documentadas con comentarios en `backend/.env.example`. Genera secretos aleatorios con:
 ```bash
 openssl rand -hex 32
+```
+
+## Pruebas antes de publicar
+
+Desde `backend`:
+
+```bash
+npm test
+```
+
+Desde `frontend`:
+
+```bash
+npm run build
+```
+
+Para habilitar respaldos localmente, instala PostgreSQL Client Tools y verifica:
+
+```bash
+pg_dump --version
 ```

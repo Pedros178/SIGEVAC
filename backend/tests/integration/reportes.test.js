@@ -9,7 +9,11 @@ describe('Reportes exportables (Módulo 15)', () => {
     await request(app)
       .post('/api/voluntarios')
       .set('Authorization', `Bearer ${token}`)
-      .send({ nombre: 'ReporteTest', apellidoPaterno: 'Mayor', fechaNacimiento: '1990-01-01' });
+      .send({
+        nombre: 'ReporteTest', apellidoPaterno: 'Mayor', fechaNacimiento: '1990-01-01',
+        telefonoCelular: '5551234567', telefonoFijo: '5557654321',
+        estado: 'Puebla', municipio: 'Tehuacán',
+      });
   });
 
   test('GET /api/reportes/tipos lista los tipos de reporte disponibles', async () => {
@@ -30,6 +34,19 @@ describe('Reportes exportables (Módulo 15)', () => {
     expect(respuesta.body.filas.some((f) => f.nombre && f.nombre.includes('ReporteTest'))).toBe(true);
   });
 
+  test('el reporte de voluntarios activos incluye edad y teléfono', async () => {
+    const respuesta = await request(app)
+      .get('/api/reportes/voluntarios-activos')
+      .query({ formato: 'json' })
+      .set('Authorization', `Bearer ${token}`);
+    const fila = respuesta.body.filas.find((f) => f.nombre && f.nombre.includes('ReporteTest'));
+
+    expect(respuesta.status).toBe(200);
+    expect(fila).toBeDefined();
+    expect(fila.edad).toBe(36);
+    expect(fila.telefono).toBe('5551234567');
+  });
+
   test('un reporte en formato csv responde con content-type text/csv', async () => {
     const respuesta = await request(app)
       .get('/api/reportes/mayores')
@@ -37,6 +54,19 @@ describe('Reportes exportables (Módulo 15)', () => {
       .set('Authorization', `Bearer ${token}`);
     expect(respuesta.status).toBe(200);
     expect(respuesta.headers['content-type']).toMatch(/text\/csv/);
+  });
+
+  test('los reportes de mayores y municipio muestran los datos disponibles', async () => {
+    const [mayores, municipios] = await Promise.all([
+      request(app).get('/api/reportes/mayores').query({ formato: 'json' }).set('Authorization', `Bearer ${token}`),
+      request(app).get('/api/reportes/voluntarios-por-municipio').query({ formato: 'json' }).set('Authorization', `Bearer ${token}`),
+    ]);
+    const filaMayor = mayores.body.filas.find((f) => f.nombre && f.nombre.includes('ReporteTest'));
+
+    expect(mayores.status).toBe(200);
+    expect(filaMayor.telefono).toBe('5551234567');
+    expect(municipios.status).toBe(200);
+    expect(municipios.body.filas).toEqual(expect.arrayContaining([{ municipio: 'Tehuacán', total: expect.any(Number) }]));
   });
 
   test('un tipo de reporte inexistente responde 404', async () => {
