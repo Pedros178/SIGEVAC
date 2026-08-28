@@ -41,10 +41,18 @@ const participacionDeAsociacion = (parametro = 'id') => protegerPorConsulta(
    WHERE p.id = $1 AND a.asociacion_id = $2`, parametro
 );
 
+// Agregado junto con la corrección del bug de evidencias sin servir.
+const evidenciaDeAsociacion = (parametro = 'id') => protegerPorConsulta(
+  `SELECT 1 FROM evidencias ev
+   JOIN actividades a ON a.id = ev.actividad_id
+   WHERE ev.id = $1 AND a.asociacion_id = $2`, parametro
+);
+
 module.exports = {
   voluntarioDeAsociacion,
   documentoDeAsociacion,
   archivoDeAsociacion,
   actividadDeAsociacion,
   participacionDeAsociacion,
+  evidenciaDeAsociacion,
 };

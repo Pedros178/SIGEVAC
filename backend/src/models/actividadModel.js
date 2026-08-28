@@ -55,12 +55,17 @@ const ActividadModel = {
     return rows[0];
   },
 
-  async agregarEvidencia(actividadId, { url, descripcion }) {
+  async agregarEvidencia(actividadId, { url, mimeType, descripcion }) {
     const { rows } = await query(
-      `INSERT INTO evidencias (actividad_id, url, descripcion) VALUES ($1,$2,$3) RETURNING *`,
-      [actividadId, url, descripcion || null]
+      `INSERT INTO evidencias (actividad_id, url, mime_type, descripcion) VALUES ($1,$2,$3,$4) RETURNING *`,
+      [actividadId, url, mimeType || null, descripcion || null]
     );
     return rows[0];
+  },
+
+  async obtenerEvidenciaPorId(id) {
+    const { rows } = await query(`SELECT * FROM evidencias WHERE id = $1`, [id]);
+    return rows[0] || null;
   },
 
   async listarEvidencias(actividadId) {

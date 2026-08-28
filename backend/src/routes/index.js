@@ -21,6 +21,7 @@ const inventarioRoutes = require('./inventarioRoutes');
 const cuotaRoutes = require('./cuotaRoutes');
 const solicitudRoutes = require('./solicitudRoutes');
 const publicRoutes = require('./publicRoutes');
+const evidenciaRoutes = require('./evidenciaRoutes');
 const { query } = require('../config/database');
 
 const router = express.Router();
@@ -69,6 +70,7 @@ router.use('/inventario', inventarioRoutes);
 router.use('/cuotas', cuotaRoutes);
 router.use('/solicitudes', solicitudRoutes);
 router.use('/publico', publicRoutes);
+router.use('/evidencias', evidenciaRoutes); // servir fotos de evidencia (antes solo se podían subir, nunca ver)
 
 // Los siguientes módulos se irán agregando en las próximas fases:
 // Fase 6: firma electrónica, generación de documentos, portal del voluntario/tutor, multi-asociación

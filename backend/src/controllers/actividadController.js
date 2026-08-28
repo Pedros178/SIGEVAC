@@ -1,5 +1,5 @@
 const ActividadModel = require('../models/actividadModel');
-const { almacenamientoRemoto, guardarArchivo } = require('../config/storage');
+const { almacenamientoRemoto, guardarArchivo, obtenerArchivo } = require('../config/storage');
 const ParticipacionModel = require('../models/participacionModel');
 const { notificarNuevaActividad } = require('../services/notificacionService');
 
@@ -25,7 +25,12 @@ const ActividadController = {
       const actividad = await ActividadModel.crear({
         asociacionId: req.usuario.asociacionId, nombre, fecha, horaInicio, horaFin, estado, lugar, responsableId, descripcion, cupo,
       });
-      notificarNuevaActividad({ actividad, asociacionId: req.usuario.asociacionId }); // best-effort
+      // notificarNuevaActividad ya maneja sus propios errores internamente
+      // (nunca lanza), así que esperarla no puede tumbar esta respuesta;
+      // pero si no se espera, el cliente puede consultar /notificaciones
+      // antes de que las filas existan (condición de carrera real,
+      // confirmada porque hacía fallar 2 pruebas de la propia suite).
+      await notificarNuevaActividad({ actividad, asociacionId: req.usuario.asociacionId });
       return res.status(201).json({ actividad });
     } catch (err) {
       return next(err);
@@ -74,9 +79,34 @@ const ActividadController = {
       if (almacenamientoRemoto) require('fs').unlink(req.file.path, () => {});
       const evidencia = await ActividadModel.agregarEvidencia(req.params.id, {
         url: referencia,
+        mimeType: req.file.mimetype,
         descripcion: req.body.descripcion,
       });
       return res.status(201).json({ evidencia });
+    } catch (err) {
+      return next(err);
+    }
+  },
+
+  /**
+   * GET /api/evidencias/:id
+   * Sirve el contenido real de la foto (antes solo se podía subir, nunca
+   * volver a ver: se recibía la lista pero no había forma de traer los
+   * bytes de vuelta, ni local ni desde Supabase Storage).
+   */
+  async obtenerEvidencia(req, res, next) {
+    try {
+      const evidencia = await ActividadModel.obtenerEvidenciaPorId(req.params.id);
+      if (!evidencia) return res.status(404).json({ error: 'Evidencia no encontrada.' });
+
+      try {
+        const contenido = await obtenerArchivo(evidencia.url);
+        res.set('Content-Type', evidencia.mime_type || 'application/octet-stream');
+        res.set('Cache-Control', 'private, max-age=3600');
+        return res.send(contenido);
+      } catch (error) {
+        return res.status(404).json({ error: 'La evidencia ya no existe en el almacenamiento.' });
+      }
     } catch (err) {
       return next(err);
     }

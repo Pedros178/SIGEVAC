@@ -292,6 +292,7 @@ CREATE TABLE evidencias (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     actividad_id UUID NOT NULL REFERENCES actividades(id) ON DELETE CASCADE,
     url TEXT NOT NULL,
+    mime_type VARCHAR(100),
     descripcion VARCHAR(255),
     creado_en TIMESTAMPTZ NOT NULL DEFAULT now()
 );
