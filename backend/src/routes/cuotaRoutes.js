@@ -1,0 +1,10 @@
+const express = require('express');
+const controller = require('../controllers/cuotaController');
+const { autenticar } = require('../middlewares/auth');
+const { requiereRol } = require('../middlewares/permisos');
+const router = express.Router();
+router.use(autenticar, requiereRol('super_admin'));
+router.get('/', controller.listar);
+router.post('/', controller.crear);
+router.post('/pagos', controller.registrarPago);
+module.exports = router;

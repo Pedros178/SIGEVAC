@@ -1,0 +1,1 @@
+ALTER TABLE auditoria ALTER COLUMN accion TYPE VARCHAR(255);
