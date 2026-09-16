@@ -50,6 +50,24 @@ Puedes reproducir la auditoría tú mismo con `npm audit` dentro de `backend/` y
 
 ---
 
+## Paso 0 — Subir el proyecto a GitHub (si todavía no está ahí)
+
+El repositorio ya viene inicializado con git y un primer commit (`git log` para verlo). Solo falta conectarlo a GitHub:
+
+1. Ve a **github.com/new** y crea un repositorio vacío (sin README, sin `.gitignore` ni licencia — ya los trae este proyecto). Anota la URL, por ejemplo `https://github.com/tu-usuario/SIGEVAC.git`.
+2. En tu computadora, dentro de la carpeta del proyecto:
+   ```bash
+   git remote add origin https://github.com/tu-usuario/SIGEVAC.git
+   git branch -M main
+   git push -u origin main
+   ```
+3. Verifica en GitHub que los archivos aparecieron y que **NO** aparece ningún `.env` ni `.env.test` (solo `.env.example` y `.env.test.example`) — el `.gitignore` ya los excluye, pero es buena práctica confirmarlo antes de dar por hecho que el repo es público-seguro.
+4. Ve a la pestaña **Actions** del repositorio: el workflow de CI (`.github/workflows/ci.yml`) debe correr solo con el primer push y quedar en verde (lint + `npm audit` + tests + build, backend y frontend).
+
+Con el código ya en GitHub, los Pasos 3 y 4 de esta guía (desplegar en Render) piden conectar ese mismo repositorio.
+
+---
+
 ## Paso 1 — Crear la base de datos en Supabase
 
 1. Ve a **supabase.com** y crea una cuenta gratuita (con GitHub es más rápido).
