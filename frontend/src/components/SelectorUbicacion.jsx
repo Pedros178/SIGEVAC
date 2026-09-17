@@ -2,8 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { CENTRO_PUEBLA } from './MapaActividades.jsx';
-
-const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
+import api from '../services/api';
 
 /**
  * Selector de ubicación para el formulario de actividades: permite
@@ -35,12 +34,13 @@ export default function SelectorUbicacion({ latitud, longitud, onCambiar, onLuga
 
     const temporizador = setTimeout(async () => {
       try {
-        const url = `${NOMINATIM_URL}?format=json&addressdetails=1&limit=6&countrycodes=mx&q=${encodeURIComponent(termino)}`;
-        const respuesta = await fetch(url, { headers: { Accept: 'application/json' } });
-        if (!respuesta.ok) throw new Error('busqueda_fallida');
-        const resultados = await respuesta.json();
+        // Se consulta el proxy del backend, no Nominatim directamente:
+        // su política de uso exige un User-Agent identificable (que el
+        // navegador no permite fijar) y limita a 1 req/s para toda la
+        // aplicación. El backend añade ese header, serializa y cachea.
+        const { data } = await api.get('/geocodificacion/buscar', { params: { q: termino } });
         if (idPeticion.current !== idActual) return; // llegó una búsqueda más nueva, ignorar esta
-        setSugerencias(resultados);
+        setSugerencias(data.lugares || []);
         setMostrarSugerencias(true);
       } catch {
         if (idPeticion.current !== idActual) return;
@@ -64,6 +64,24 @@ export default function SelectorUbicacion({ latitud, longitud, onCambiar, onLuga
     setMostrarSugerencias(false);
   }
 
+  // Al marcar un punto directamente (clic en el mapa o "usar mi
+  // ubicación") solo se tienen coordenadas. Se consulta el nombre del
+  // lugar para poder mostrarlo y sugerirlo como lugar de la actividad,
+  // en vez de dejar al usuario con un par de números sin contexto.
+  async function marcarYNombrar(lat, lng) {
+    onCambiar(lat, lng);
+    try {
+      const { data } = await api.get('/geocodificacion/inverso', { params: { lat, lon: lng } });
+      if (data.lugar?.display_name) {
+        setTexto(data.lugar.display_name);
+        if (onLugarSugerido) onLugarSugerido(data.lugar.display_name);
+      }
+    } catch {
+      // El nombre del lugar es un extra: si no se puede obtener, las
+      // coordenadas ya quedaron marcadas y el formulario sigue válido.
+    }
+  }
+
   function usarMiUbicacion() {
     if (!navigator.geolocation) {
       setErrorGeo('Tu navegador no soporta geolocalización.');
@@ -73,7 +91,7 @@ export default function SelectorUbicacion({ latitud, longitud, onCambiar, onLuga
     setErrorGeo('');
     navigator.geolocation.getCurrentPosition(
       (posicion) => {
-        onCambiar(posicion.coords.latitude.toFixed(7), posicion.coords.longitude.toFixed(7));
+        marcarYNombrar(posicion.coords.latitude.toFixed(7), posicion.coords.longitude.toFixed(7));
         setBuscandoGeo(false);
       },
       () => {
@@ -126,7 +144,7 @@ export default function SelectorUbicacion({ latitud, longitud, onCambiar, onLuga
             attribution='&copy; OpenStreetMap'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          <CapturadorClic onClic={(lat, lng) => onCambiar(lat.toFixed(7), lng.toFixed(7))} />
+          <CapturadorClic onClic={(lat, lng) => marcarYNombrar(lat.toFixed(7), lng.toFixed(7))} />
           <CentradorMapa posicion={posicion} />
           {posicion && <Marker position={posicion} />}
         </MapContainer>

@@ -154,7 +154,7 @@ Verifica en el panel de Supabase (**Table Editor**) que las tablas aparecieron.
 
 > **Correo obligatorio para operación completa:** sin SMTP configurado, el login de recuperación de contraseña y los enlaces del portal solo se registran en los logs del backend; no llegan a los usuarios.
 
-> **WhatsApp opcional:** configura `WHATSAPP_ACCESS_TOKEN` y `WHATSAPP_PHONE_NUMBER_ID` con credenciales de Meta WhatsApp Cloud API. El número debe recibirse en formato internacional y Meta puede exigir plantillas aprobadas para mensajes iniciados por el negocio.
+> **WhatsApp (opcional, pero con un requisito que sorprende):** ver la sección "WhatsApp: plantillas obligatorias" más abajo. En resumen: no basta con el token y el número — Meta **rechaza el texto libre** en mensajes que inicia la asociación, así que hace falta una plantilla aprobada (`WHATSAPP_TEMPLATE_NOTIFICACION`) o no se envía nada.
 
 > **Almacenamiento de archivos:** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` y `SUPABASE_STORAGE_BUCKET` (tabla de arriba) no son opcionales — el backend se niega a arrancar sin ellas en Render o con `NODE_ENV=production`, precisamente para evitar el problema de "las fotos de la galería no cargan" descrito en la sección "Almacenamiento de archivos" al inicio de esta guía. Sin ellas, los archivos se guardarían en el disco local del contenedor, que Render Free borra en cada reinicio/redeploy.
 
@@ -224,6 +224,39 @@ Para habilitar respaldos localmente, instala PostgreSQL Client Tools y verifica:
 pg_dump --version
 ```
 
+## WhatsApp: plantillas obligatorias (si vas a usar esta integración)
+
+WhatsApp es **opcional** — sin configurar, SIGEVAC notifica por correo y funciona igual. Pero si lo activas, hay un requisito de Meta que no es evidente y que hace fallar la integración "silenciosamente" si se pasa por alto:
+
+**Meta solo permite enviar texto libre dentro de una ventana de 24 horas que abre el usuario al escribirle primero a la empresa.** Todas las notificaciones de SIGEVAC (documento rechazado, expediente aprobado, documento por vencer) las inicia la asociación, no el voluntario — así que caen fuera de esa ventana y Meta las rechaza con el **error 131047**. La única forma de enviarlas es como **plantilla previamente aprobada**.
+
+Pasos para dejarlo funcionando:
+
+1. En **business.facebook.com → WhatsApp Manager → Plantillas de mensajes**, crea una plantilla:
+   - **Categoría**: `Utilidad` (no `Marketing`; las de utilidad se aprueban más rápido y no requieren opt-in promocional).
+   - **Idioma**: español (México) → el código es `es_MX`.
+   - **Cuerpo**: un texto con **una sola variable**, por ejemplo:
+     `Hola, tienes una notificación de SIGEVAC: {{1}}`
+   - Meta suele aprobarla en minutos u horas.
+2. Copia el **nombre exacto** de la plantilla a la variable `WHATSAPP_TEMPLATE_NOTIFICACION` en Render (y `WHATSAPP_TEMPLATE_IDIOMA=es_MX` si usaste otro idioma).
+3. Configura también `WHATSAPP_ACCESS_TOKEN` y `WHATSAPP_PHONE_NUMBER_ID`.
+   > El token temporal que Meta muestra al principio **dura 24 horas**. Para producción genera un token permanente desde un *System User* en Business Settings, o la integración dejará de funcionar al día siguiente (error 190, que el backend ya traduce a un mensaje claro en los logs).
+4. Mientras la cuenta esté en **modo de prueba**, Meta solo entrega a números que agregues a la lista de destinatarios permitidos (error 131030).
+
+**Formato de teléfonos:** no hace falta que cambies nada. Los teléfonos se capturan como números locales de 10 dígitos (`2381234567`) y el backend los convierte al formato internacional que exige Meta (`522381234567`), tolerando espacios, guiones y paréntesis. Si un teléfono está incompleto, el envío se omite y queda registrado en los logs, en vez de mandarle el mensaje a un número equivocado. El código de país se ajusta con `WHATSAPP_CODIGO_PAIS` (52 por defecto).
+
+**Cómo saber si está funcionando:** los envíos fallidos ya no se pierden en silencio — los logs del backend muestran el motivo exacto traducido (plantilla no aprobada, token vencido, número fuera de la lista de prueba, ventana cerrada), no solo "falló el envío".
+
+## Geocodificación (buscador de lugares en actividades)
+
+El formulario de actividades permite buscar una dirección, marcar un punto en el mapa y usar la ubicación actual del dispositivo. Usa **Nominatim (OpenStreetMap)**, que es gratuito y no pide API key, pero **tiene una política de uso que hay que respetar** o bloquea las peticiones con `403`:
+
+- Exige un **User-Agent que identifique la aplicación** con un contacto real. Como los navegadores no permiten fijar ese header, las búsquedas **pasan por el backend** (`/api/geocodificacion/*`), que sí lo envía. Ajusta `NOMINATIM_USER_AGENT` con la URL o el correo de tu despliegue.
+- El límite es de **1 petición por segundo sumando todos los usuarios** de la aplicación. El backend serializa las peticiones salientes para respetarlo y **cachea** los resultados 24 h (las búsquedas de la región se repiten mucho), además de limitar a 30 búsquedas por minuto por usuario.
+- Si el proyecto llegara a tener tráfico alto, la salida es apuntar `NOMINATIM_URL` a una instancia propia o a un proveedor comercial — no hace falta tocar código.
+
+El endpoint requiere sesión iniciada, para que el proxy no quede expuesto como servicio de geocodificación gratuito para terceros.
+
 ## Solución de problemas comunes
 
 **Las fotos de la galería pública no cargan (ícono roto) o desaparecieron:**
@@ -245,3 +278,14 @@ El entorno de Render no tiene instalado `pg_dump`. Ver la nota de "Respaldos" en
 
 **La primera carga tarda 30-60 segundos:**
 Normal en el plan gratuito de Render (arranque en frío tras 15 min sin tráfico) — ver la tabla de limitaciones al inicio.
+
+**Los mensajes de WhatsApp no llegan:**
+Revisa los logs del backend, que ya traducen el error de Meta:
+- `WhatsApp configurado pero sin WHATSAPP_TEMPLATE_NOTIFICACION` → falta crear/configurar la plantilla aprobada (ver sección "WhatsApp" arriba). Es el caso más común.
+- *ventana de 24 h está cerrada* (error 131047) → se intentó enviar texto libre; debe ir por plantilla.
+- *token inválido o expiró* (error 190) → estás usando el token temporal de 24 h; genera uno permanente de System User.
+- *no está en la lista de destinatarios permitidos* (131030) → la cuenta sigue en modo de prueba en Meta.
+- *Teléfono ausente o con formato no reconocible* → el teléfono del voluntario está incompleto en la base de datos.
+
+**El buscador de lugares del formulario de actividades no encuentra nada / responde 503:**
+Nominatim está limitando las peticiones. Verifica que `NOMINATIM_USER_AGENT` tenga un contacto real que resuelva (una URL o correo válidos) — un User-Agent genérico o con un dominio inexistente es motivo de bloqueo. Si el problema persiste con tráfico alto, apunta `NOMINATIM_URL` a una instancia propia o a un proveedor comercial. Mientras tanto, siempre se puede marcar la ubicación con un clic en el mapa, que no depende del buscador.

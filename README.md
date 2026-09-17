@@ -41,7 +41,7 @@ Proyecto de residencia — Instituto Tecnológico de Tehuacán (ITT), en colabor
 | **9** | Modo offline (PWA), geolocalización, gamificación y gestión de riesgo | ✅ Implementado |
 | **10** | Página de inicio pública de la asociación | ✅ Implementado (galería con fotos de la asociación, editable desde Administración) |
 | **11** | Inventario avanzado (categorías, fotos, préstamos y mantenimientos) | ✅ Implementado |
-| **12** | Endurecimiento de seguridad, actualización de dependencias y corrección de la galería | ✅ Implementado |
+| **12** | Endurecimiento de seguridad, dependencias, galería e integraciones reales (WhatsApp, geocodificación) | ✅ Implementado |
 
 ## Estructura del repositorio
 
@@ -62,7 +62,7 @@ sigevac/
 │   │   ├── models/             # capa de acceso a datos (SQL parametrizado)
 │   │   ├── routes/
 │   │   └── utils/              # jwt.js, password.js, cookies.js
-│   ├── tests/                  # unit/ + integration/, 25 suites contra PostgreSQL real
+│   ├── tests/                  # unit/ + integration/, 28 suites contra PostgreSQL real
 │   ├── server.js
 │   └── package.json
 └── frontend/
@@ -122,7 +122,7 @@ createdb sigevac_jest
 cd backend
 cp .env.test.example .env.test   # ya apunta a sigevac_jest por defecto
 npm run lint
-npm test                          # 25 suites / 222 pruebas contra PostgreSQL real
+npm test                          # 28 suites / 244 pruebas contra PostgreSQL real
 
 # Frontend
 cd ../frontend
@@ -349,7 +349,7 @@ formulario solo captura el nombre en texto libre); y un endpoint para
 eliminar categorías (una de las dos implementaciones lo tenía, no se
 incluyó aquí para no ampliar el alcance sin definirlo primero).
 
-## Fase 12 — Endurecimiento de seguridad, actualización de dependencias y corrección de la galería
+## Fase 12 — Endurecimiento de seguridad, dependencias, galería e integraciones externas
 
 Revisión de seguridad end-to-end del proyecto ya terminado, con tres objetivos: cerrar vulnerabilidades de dependencias, endurecer puntos débiles encontrados en la revisión, y diagnosticar por qué las fotos de la galería pública dejaban de cargar en producción.
 
@@ -378,4 +378,13 @@ Revisión de seguridad end-to-end del proyecto ya terminado, con tres objetivos:
 
 Detalle completo del diagnóstico y qué hacer si ya existen fotos "fantasma" de antes de este arreglo: [DEPLOY.md, sección "Almacenamiento de archivos"](./DEPLOY.md#️-almacenamiento-de-archivos-galería-documentos-respaldos--leer-antes-de-subir-fotos-reales).
 
-Verificado con la suite completa: **222/222 pruebas backend, 56/56 pruebas frontend**, lint sin errores en ambos proyectos, build de producción del frontend limpio.
+### Integraciones externas corregidas (WhatsApp y geocodificación)
+
+Ambas integraciones ya usaban APIs reales (Meta Cloud API y Nominatim/OpenStreetMap), pero ninguna cumplía los requisitos que esos servicios imponen en producción:
+
+- **WhatsApp — las notificaciones nunca habrían llegado.** Meta solo acepta texto libre dentro de la ventana de 24 h que abre el usuario al escribir primero; todas las notificaciones de SIGEVAC las inicia la asociación, así que Meta las rechazaba con el error 131047. Ahora se envían como **plantilla aprobada** (`type: template`). Además: los teléfonos, capturados como números locales de 10 dígitos, se **normalizan al formato internacional** que exige Meta (antes se enviaban tal cual y no habrían llegado), los errores de Meta se traducen a mensajes accionables en los logs (plantilla no aprobada, token vencido, número en modo prueba) y los envíos fallidos ya no se descartan en silencio.
+- **Geocodificación — el buscador se habría bloqueado con el uso.** La política de Nominatim exige un User-Agent identificable (que el navegador no permite fijar) y limita a 1 req/s para *toda* la aplicación, no por usuario; se llamaba directamente desde el navegador, sin identificar y sin control de tasa, lo que lleva a un bloqueo por `403`. Ahora pasa por un **proxy en el backend** (`/api/geocodificacion`) que envía el User-Agent correcto, serializa las peticiones a 1/s, cachea 24 h y limita por usuario. Se agregó además **geocodificación inversa**: al marcar un punto en el mapa se obtiene el nombre del lugar, en vez de dejar solo coordenadas.
+
+Ambas quedan configurables por variables de entorno (plantilla e idioma de WhatsApp, código de país, User-Agent y proveedor de geocodificación), documentadas en `backend/.env.example` y en [DEPLOY.md](./DEPLOY.md).
+
+Verificado con la suite completa: **244/244 pruebas backend, 56/56 pruebas frontend**, lint sin errores en ambos proyectos, build de producción del frontend limpio.

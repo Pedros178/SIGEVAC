@@ -3,7 +3,19 @@ const { enviarCorreo, escaparHtml } = require('../utils/email');
 const { enviarWhatsApp } = require('../utils/whatsapp');
 
 function notificarWhatsAppBestEffort(telefono, texto) {
-  return enviarWhatsApp({ telefono, texto }).catch((err) => console.error('No se pudo enviar WhatsApp:', err.message));
+  return enviarWhatsApp({ telefono, texto })
+    .then((resultado) => {
+      // Un envío no realizado (plantilla sin configurar, teléfono con
+      // formato irreconocible, WhatsApp apagado) devuelve `enviado:false`
+      // en vez de lanzar. Antes eso se descartaba en silencio y daba la
+      // impresión de que la notificación había salido; ahora queda en el
+      // log con el motivo exacto.
+      if (resultado && resultado.enviado === false && resultado.motivo !== 'WhatsApp no configurado o sin teléfono') {
+        console.warn('WhatsApp no enviado:', resultado.motivo);
+      }
+      return resultado;
+    })
+    .catch((err) => console.error('No se pudo enviar WhatsApp:', err.message));
 }
 
 /**

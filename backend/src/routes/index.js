@@ -24,6 +24,7 @@ const publicRoutes = require('./publicRoutes');
 const evidenciaRoutes = require('./evidenciaRoutes');
 const insigniaRoutes = require('./insigniaRoutes');
 const galeriaRoutes = require('./galeriaRoutes');
+const geocodificacionRoutes = require('./geocodificacionRoutes');
 const { query } = require('../config/database');
 
 const router = express.Router();
@@ -75,6 +76,7 @@ router.use('/publico', publicRoutes);
 router.use('/evidencias', evidenciaRoutes); // servir fotos de evidencia (antes solo se podían subir, nunca ver)
 router.use('/insignias', insigniaRoutes); // catálogo de gamificación
 router.use('/galeria', galeriaRoutes); // administración de la galería de fotos pública
+router.use('/geocodificacion', geocodificacionRoutes); // proxy de Nominatim (su política prohíbe llamarlo desde el navegador)
 
 // Los siguientes módulos se irán agregando en las próximas fases:
 // Fase 6: firma electrónica, generación de documentos, portal del voluntario/tutor, multi-asociación
