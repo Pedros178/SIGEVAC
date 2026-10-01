@@ -8,6 +8,7 @@ const cookieParser = require('cookie-parser');
 const apiRoutes = require('./src/routes');
 const { errorHandler, notFoundHandler } = require('./src/middlewares/errorHandler');
 const { registrarTrazabilidad } = require('./src/middlewares/trazabilidad');
+const { validarEntornoProduccion } = require('./src/utils/validarEntorno');
 
 // La validación de abajo se dispara con NODE_ENV=production (como pide
 // DEPLOY.md) pero TAMBIÉN si detecta que corre dentro de Render
@@ -19,13 +20,9 @@ const { registrarTrazabilidad } = require('./src/middlewares/trazabilidad');
 // guardando archivos en el disco local de Render, y semanas después ese
 // disco se borra en un reinicio/redeploy silenciosamente.
 if (process.env.NODE_ENV === 'production' || process.env.RENDER === 'true') {
-  const variablesRequeridas = [
-    'DATABASE_URL', 'JWT_SECRET', 'JWT_REFRESH_SECRET', 'FRONTEND_URL',
-    'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_STORAGE_BUCKET',
-  ];
-  const variablesFaltantes = variablesRequeridas.filter((nombre) => !process.env[nombre]);
-  if (variablesFaltantes.length > 0) {
-    throw new Error(`Faltan variables de producción: ${variablesFaltantes.join(', ')}`);
+  const problemas = validarEntornoProduccion(process.env);
+  if (problemas.length > 0) {
+    throw new Error(`Configuración de producción inválida:\n - ${problemas.join('\n - ')}`);
   }
 }
 

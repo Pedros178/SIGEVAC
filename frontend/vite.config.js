@@ -26,7 +26,7 @@ export default defineConfig({
         // Precarga el "app shell" (JS/CSS/HTML) para que la aplicación
         // abra sin conexión. Las llamadas a la API NO se cachean aquí a
         // propósito: los datos de actividades se cachean explícitamente
-        // en src/offline/cacheActividades.js, con control total sobre
+        // en src/offline/ (db.js / sincronizador.js), con control total sobre
         // cuándo se consideran válidos, en vez de dejar que un cache HTTP
         // genérico sirva respuestas desactualizadas sin que la app lo sepa.
         globPatterns: ['**/*.{js,css,html,png,jpg,jpeg,svg}'],

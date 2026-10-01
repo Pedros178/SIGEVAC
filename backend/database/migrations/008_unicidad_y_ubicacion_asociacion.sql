@@ -1,5 +1,7 @@
 -- Consolidate the duplicate seed/application record before enforcing uniqueness.
-BEGIN;
+-- (Sin BEGIN/COMMIT propios: el ejecutor de migraciones ya envuelve cada archivo en una transacción.)
+-- Los UUID son los de la instalación original: en cualquier otra base, donde no
+-- existen ambos registros, el bloque no hace nada (antes un DELETE ciego con cascada).
 
 DO $$
 DECLARE
@@ -7,6 +9,11 @@ DECLARE
   asociacion_duplicada UUID := '03d4e46a-8026-4291-b4a3-6dd6e0fff9c9';
   referencia RECORD;
 BEGIN
+  IF NOT (EXISTS (SELECT 1 FROM asociaciones WHERE id = asociacion_original)
+      AND EXISTS (SELECT 1 FROM asociaciones WHERE id = asociacion_duplicada)) THEN
+    RETURN;
+  END IF;
+
   FOR referencia IN
     SELECT table_schema, table_name, column_name
     FROM information_schema.columns
@@ -29,5 +36,3 @@ END $$;
 
 CREATE UNIQUE INDEX IF NOT EXISTS asociaciones_nombre_unico_idx
   ON asociaciones (lower(trim(nombre)));
-
-COMMIT;

@@ -51,7 +51,11 @@ router.get('/catalogos/ubicaciones', async (req, res, next) => {
   }
 });
 
-router.use('/docs', swaggerUi.serve, swaggerUi.setup(openapiSpec)); // Módulo 22: documentación de la API
+// Módulo 22: documentación de la API. En producción NO se publica salvo que se
+// pida explícitamente (ENABLE_API_DOCS=true): expone el mapa completo de endpoints.
+if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_API_DOCS === 'true') {
+  router.use('/docs', swaggerUi.serve, swaggerUi.setup(openapiSpec));
+}
 
 router.use('/auth', authRoutes);
 router.use('/usuarios', usuarioRoutes);

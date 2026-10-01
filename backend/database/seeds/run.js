@@ -8,6 +8,13 @@ const fs = require('fs');
 const path = require('path');
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+const { validarFortalezaPassword } = require('../../src/utils/password');
+
+function generarPasswordSegura() {
+  // 3 bloques aleatorios + símbolo y número fijos para cumplir la política de fortaleza
+  return `${crypto.randomBytes(6).toString('base64url')}-${crypto.randomBytes(6).toString('base64url')}#${crypto.randomInt(10, 99)}Aa`;
+}
 
 async function main() {
   const pool = new Pool({
@@ -23,7 +30,15 @@ async function main() {
     console.log('✅ Datos semilla base aplicados.');
 
     const correoAdmin = process.env.SEED_ADMIN_EMAIL || 'admin@suenosdecomedia.org';
-    const passwordAdmin = process.env.SEED_ADMIN_PASSWORD || 'Sigevac#2026';
+    // Sin contraseña por defecto conocida: si no se define SEED_ADMIN_PASSWORD
+    // se genera una aleatoria y se muestra UNA sola vez en esta ejecución.
+    const passwordGenerada = !process.env.SEED_ADMIN_PASSWORD;
+    const passwordAdmin = process.env.SEED_ADMIN_PASSWORD || generarPasswordSegura();
+    if (process.env.SEED_ADMIN_PASSWORD === 'Sigevac#2026' && process.env.NODE_ENV === 'production') {
+      throw new Error('SEED_ADMIN_PASSWORD conserva el valor público de ejemplo; define una contraseña propia.');
+    }
+    const errorFortaleza = validarFortalezaPassword(passwordAdmin);
+    if (errorFortaleza) throw new Error(`SEED_ADMIN_PASSWORD no cumple la política: ${errorFortaleza}`);
 
     const { rows: existentes } = await client.query('SELECT id FROM usuarios WHERE correo = $1', [correoAdmin]);
     if (existentes.length > 0) {
@@ -56,8 +71,11 @@ async function main() {
         [nuevoUsuario[0].id, rolRows[0].id]
       );
 
-      console.log(`✅ Usuario super_admin creado: ${correoAdmin} / ${passwordAdmin}`);
-      console.log('⚠️  Cambia esta contraseña después del primer inicio de sesión.');
+      console.log(`✅ Usuario super_admin creado: ${correoAdmin}`);
+      if (passwordGenerada) {
+        console.log(`🔑 Contraseña inicial GENERADA (no se volverá a mostrar): ${passwordAdmin}`);
+      }
+      console.log('⚠️  Cambia esta contraseña después del primer inicio de sesión (POST /api/auth/change-password).');
     }
   } catch (err) {
     console.error('❌ Error aplicando seeds:', err.message);

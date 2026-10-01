@@ -19,6 +19,10 @@ const RespaldoModel = {
     return rows;
   },
 
+  async eliminar(id) {
+    await query(`DELETE FROM respaldos WHERE id = $1`, [id]);
+  },
+
   async obtenerPorId(id) {
     const { rows } = await query(`SELECT * FROM respaldos WHERE id = $1`, [id]);
     return rows[0] || null;

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import BarraNavegacion from '../components/BarraNavegacion.jsx';
 import FotoAutenticada from '../components/FotoAutenticada.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
-import api from '../services/api';
+import api, { guardarAccessToken } from '../services/api';
 import SelectorUbicacionCatalogo from '../components/SelectorUbicacionCatalogo.jsx';
 
 // Cada pestaña declara qué permiso la habilita (Módulo 23 — Panel
@@ -45,6 +45,7 @@ export default function Administracion() {
           Usuarios, auditoría, bitácora, configuración y respaldos (Módulos 2, 18–21, 23)
         </p>
 
+        <PanelCambioPassword />
         <PanelSeguridad2FA />
 
         {pestanasVisibles.length === 0 ? (
@@ -85,6 +86,7 @@ export function PanelSeguridad2FA() {
   const [configuracion, setConfiguracion] = useState(null);
   const [codigo, setCodigo] = useState('');
   const [codigoDesactivar, setCodigoDesactivar] = useState('');
+  const [passwordConfirmacion, setPasswordConfirmacion] = useState('');
   const [mostrarDesactivar, setMostrarDesactivar] = useState(false);
   const [dosFactorActivo, setDosFactorActivo] = useState(!!usuario?.two_factor_activo);
   const [error, setError] = useState('');
@@ -94,8 +96,10 @@ export function PanelSeguridad2FA() {
   async function preparar() {
     setCargando(true); setError(''); setMensaje('');
     try {
-      const { data } = await api.post('/auth/2fa/setup');
+      // Re-autenticación: configurar un segundo factor exige la contraseña actual
+      const { data } = await api.post('/auth/2fa/setup', { password: passwordConfirmacion });
       setConfiguracion(data);
+      setPasswordConfirmacion('');
     } catch (err) {
       setError(err.response?.data?.error || 'No se pudo preparar la autenticación de dos factores.');
     } finally { setCargando(false); }
@@ -157,9 +161,21 @@ export function PanelSeguridad2FA() {
           </div>
         )
       ) : !configuracion ? (
-        <button type="button" style={styles.botonDescargar} onClick={preparar} disabled={cargando}>
-          {cargando ? 'Preparando…' : 'Configurar 2FA'}
-        </button>
+        <form onSubmit={(e) => { e.preventDefault(); preparar(); }} style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <input
+            className="sg-input"
+            type="password"
+            autoComplete="current-password"
+            placeholder="Confirma tu contraseña"
+            aria-label="Contraseña actual"
+            value={passwordConfirmacion}
+            onChange={(e) => setPasswordConfirmacion(e.target.value)}
+            style={{ maxWidth: 240 }}
+          />
+          <button type="submit" style={styles.botonDescargar} disabled={cargando || !passwordConfirmacion}>
+            {cargando ? 'Preparando…' : 'Configurar 2FA'}
+          </button>
+        </form>
       ) : (
         <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
           <img src={configuracion.qr} alt="Código QR para configurar 2FA" width="150" height="150" />
@@ -171,6 +187,47 @@ export function PanelSeguridad2FA() {
           </div>
         </div>
       )}
+      {mensaje && <p style={{ color: 'var(--sg-success)', fontSize: 13 }}>{mensaje}</p>}
+      {error && <Error mensaje={error} />}
+    </section>
+  );
+}
+
+export function PanelCambioPassword() {
+  const [actual, setActual] = useState('');
+  const [nueva, setNueva] = useState('');
+  const [confirmacion, setConfirmacion] = useState('');
+  const [error, setError] = useState('');
+  const [mensaje, setMensaje] = useState('');
+  const [cargando, setCargando] = useState(false);
+
+  async function cambiar(e) {
+    e.preventDefault();
+    setError(''); setMensaje('');
+    if (nueva !== confirmacion) { setError('La confirmación no coincide con la nueva contraseña.'); return; }
+    setCargando(true);
+    try {
+      const { data } = await api.post('/auth/change-password', { password_actual: actual, nueva_password: nueva });
+      // El backend cierra las demás sesiones y abre una nueva para este dispositivo
+      if (data.access_token) guardarAccessToken(data.access_token);
+      setMensaje('Contraseña actualizada. Se cerraron tus sesiones en otros dispositivos.');
+      setActual(''); setNueva(''); setConfirmacion('');
+    } catch (err) {
+      setError(err.response?.data?.error || 'No se pudo cambiar la contraseña.');
+    } finally { setCargando(false); }
+  }
+
+  return (
+    <section style={{ ...styles.tabla, padding: 16, marginBottom: 20 }}>
+      <h2 style={{ fontSize: 17, margin: '0 0 6px' }}>Cambiar contraseña</h2>
+      <form onSubmit={cambiar} style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <input className="sg-input" type="password" autoComplete="current-password" placeholder="Contraseña actual" aria-label="Contraseña actual para cambiarla" value={actual} onChange={(e) => setActual(e.target.value)} style={{ maxWidth: 220 }} />
+        <input className="sg-input" type="password" autoComplete="new-password" placeholder="Nueva contraseña" aria-label="Nueva contraseña" value={nueva} onChange={(e) => setNueva(e.target.value)} style={{ maxWidth: 220 }} />
+        <input className="sg-input" type="password" autoComplete="new-password" placeholder="Repite la nueva contraseña" aria-label="Confirmar nueva contraseña" value={confirmacion} onChange={(e) => setConfirmacion(e.target.value)} style={{ maxWidth: 220 }} />
+        <button type="submit" style={styles.botonDescargar} disabled={cargando || !actual || !nueva || !confirmacion}>
+          {cargando ? 'Guardando…' : 'Cambiar contraseña'}
+        </button>
+      </form>
       {mensaje && <p style={{ color: 'var(--sg-success)', fontSize: 13 }}>{mensaje}</p>}
       {error && <Error mensaje={error} />}
     </section>

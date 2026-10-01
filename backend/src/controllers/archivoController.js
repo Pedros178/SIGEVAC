@@ -1,3 +1,4 @@
+const { contentDisposition } = require('../utils/contentDisposition');
 const fs = require('fs');
 const ArchivoModel = require('../models/archivoModel');
 const { DocumentoModel, ExpedienteModel } = require('../models/expedienteModel');
@@ -68,7 +69,7 @@ const ArchivoController = {
       try {
         const contenido = await obtenerArchivo(archivo.url);
         res.set('Content-Type', archivo.mime_type || 'application/octet-stream');
-        res.set('Content-Disposition', `attachment; filename="${encodeURIComponent(archivo.nombre_original)}"`);
+        res.set('Content-Disposition', contentDisposition('attachment', archivo.nombre_original));
         return res.send(contenido);
       } catch {
         return res.status(404).json({ error: 'El archivo ya no existe en el almacenamiento.' });
@@ -84,7 +85,7 @@ const ArchivoController = {
       if (!archivo) return res.status(404).json({ error: 'Archivo no encontrado.' });
       const contenido = await obtenerArchivo(archivo.url);
       res.set('Content-Type', archivo.mime_type || 'application/octet-stream');
-      res.set('Content-Disposition', `inline; filename="${encodeURIComponent(archivo.nombre_original)}"`);
+      res.set('Content-Disposition', contentDisposition('inline', archivo.nombre_original));
       return res.send(contenido);
     } catch (err) {
       if (err.message?.includes('no existe')) return res.status(404).json({ error: 'El archivo ya no existe en el almacenamiento.' });

@@ -26,6 +26,13 @@
  * Uso: node database/seeds/002_seed_demo.js   (o agrega "db:seed:demo" a package.json)
  */
 require('dotenv').config();
+// Estos datos son de DEMOSTRACIÓN (contraseña pública conocida, personas ficticias):
+// nunca deben cargarse en una base de producción por accidente.
+if (process.env.NODE_ENV === 'production' && process.env.PERMITIR_SEED_DEMO !== 'true') {
+  console.error('❌ Seed de demostración bloqueado: NODE_ENV=production. Si de verdad lo necesitas, define PERMITIR_SEED_DEMO=true.');
+  process.exit(1);
+}
+
 const path = require('path');
 const bcrypt = require('bcryptjs');
 
