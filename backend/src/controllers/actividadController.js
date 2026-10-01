@@ -1,4 +1,5 @@
 const ActividadModel = require('../models/actividadModel');
+const { leerPaginacion } = require('../utils/paginacion');
 const { almacenamientoRemoto, guardarArchivo, obtenerArchivo } = require('../config/storage');
 const ParticipacionModel = require('../models/participacionModel');
 const { notificarNuevaActividad } = require('../services/notificacionService');
@@ -6,9 +7,10 @@ const { notificarNuevaActividad } = require('../services/notificacionService');
 const ActividadController = {
   async listar(req, res, next) {
     try {
-      const { desde, hasta, limit = 50, offset = 0 } = req.query;
+      const { desde, hasta } = req.query;
+      const { limit, offset } = leerPaginacion(req.query);
       const actividades = await ActividadModel.listar({
-        asociacionId: req.usuario.asociacionId, desde, hasta, limit: Number(limit), offset: Number(offset),
+        asociacionId: req.usuario.asociacionId, desde, hasta, limit, offset,
       });
       return res.json({ actividades });
     } catch (err) {

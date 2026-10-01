@@ -1,4 +1,7 @@
 const { query, getClient } = require('../config/database');
+const { esMenorDeEdad } = require('../utils/edad');
+
+const PREFIJO_FOLIO = (process.env.FOLIO_PREFIJO || 'SC').replace(/[^A-Za-z0-9]/g, '').slice(0, 8) || 'SC';
 
 const VoluntarioModel = {
   /**
@@ -7,13 +10,15 @@ const VoluntarioModel = {
   async _generarNumeroVoluntario(client) {
     const anio = new Date().getFullYear();
     await client.query('SELECT pg_advisory_xact_lock($1)', [87342026]);
+    // MAX+1 (no COUNT+1): si se borra un registro, COUNT repetiría un folio
+    // existente y el UNIQUE provocaba un 500. El lock de arriba serializa.
     const { rows } = await client.query(
-      `SELECT COUNT(*)::int AS total FROM voluntarios
-       WHERE numero_voluntario ~ $1`,
-      [`^SC-${anio}-[0-9]+$`]
+      `SELECT COALESCE(MAX((substring(numero_voluntario from '[0-9]+$'))::int), 0) AS maximo
+       FROM voluntarios WHERE numero_voluntario ~ $1`,
+      [`^${PREFIJO_FOLIO}-${anio}-[0-9]+$`]
     );
-    const consecutivo = String(rows[0].total + 1).padStart(4, '0');
-    return `SC-${anio}-${consecutivo}`;
+    const consecutivo = String(Number(rows[0].maximo) + 1).padStart(4, '0');
+    return `${PREFIJO_FOLIO}-${anio}-${consecutivo}`;
   },
 
   async crear(datos, client = null) {
@@ -24,10 +29,7 @@ const VoluntarioModel = {
 
       const numeroVoluntario = await this._generarNumeroVoluntario(ejecutor);
 
-      const fechaNac = new Date(datos.fechaNacimiento);
-      const hoy = new Date();
-      const esMenorEdad = (hoy.getFullYear() - fechaNac.getFullYear()
-        - (hoy < new Date(hoy.getFullYear(), fechaNac.getMonth(), fechaNac.getDate()) ? 1 : 0)) < 18;
+      const esMenorEdad = esMenorDeEdad(datos.fechaNacimiento);
 
       let estadoId = datos.estadoId || null;
       let municipioId = datos.municipioId || null;
@@ -196,10 +198,7 @@ const VoluntarioModel = {
       fotografia_url: datos.fotografiaUrl,
     };
     if (datos.fechaNacimiento) {
-      const fechaNacimiento = new Date(datos.fechaNacimiento);
-      const hoy = new Date();
-      campos.es_menor_edad = (hoy.getFullYear() - fechaNacimiento.getFullYear()
-        - (hoy < new Date(hoy.getFullYear(), fechaNacimiento.getMonth(), fechaNacimiento.getDate()) ? 1 : 0)) < 18;
+      campos.es_menor_edad = esMenorDeEdad(datos.fechaNacimiento);
     }
     const sets = [];
     const valores = [];

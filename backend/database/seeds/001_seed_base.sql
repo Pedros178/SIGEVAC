@@ -88,6 +88,7 @@ INSERT INTO roles_permisos (rol_id, permiso_id)
 SELECT r.id, p.id FROM roles r CROSS JOIN permisos p
 WHERE r.nombre = 'consulta'
   AND p.clave LIKE '%.consultar'
+  AND p.clave <> 'auditoria.consultar'
 ON CONFLICT DO NOTHING;
 
 -- Tipos de voluntario (Módulo 5)

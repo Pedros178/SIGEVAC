@@ -11,3 +11,4 @@ process.env.MAX_INTENTOS_FALLIDOS = '3';
 process.env.BLOQUEO_MINUTOS = '15';
 process.env.FRONTEND_URL = 'http://localhost:5173';
 // Sin SMTP_HOST a propósito: las pruebas verifican el modo "solo registro" del servicio de correo.
+process.env.LOGIN_RATE_LIMIT_MAX = '100000'; // los tests hacen muchos logins desde la misma IP

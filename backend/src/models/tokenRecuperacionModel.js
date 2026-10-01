@@ -20,6 +20,20 @@ const TokenRecuperacionModel = {
     return rows[0] || null;
   },
 
+  /**
+   * Consume el token en UNA sola sentencia atómica: dos peticiones
+   * simultáneas con el mismo token no pueden ganar ambas.
+   */
+  async consumirValido(tokenHash) {
+    const { rows } = await query(
+      `UPDATE tokens_recuperacion SET usado = true
+       WHERE token_hash = $1 AND usado = false AND expira_en > now()
+       RETURNING *`,
+      [tokenHash]
+    );
+    return rows[0] || null;
+  },
+
   async marcarUsado(id) {
     await query(`UPDATE tokens_recuperacion SET usado = true WHERE id = $1`, [id]);
   },

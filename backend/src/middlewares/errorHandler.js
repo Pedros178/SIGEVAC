@@ -20,6 +20,31 @@ function errorHandler(err, req, res, next) {
     return res.status(400).json({ error: 'Referencia inválida a un registro relacionado.' });
   }
 
+  // Datos con formato inválido para el tipo de columna (uuid mal formado,
+  // texto demasiado largo, fecha/número ilegibles, nulo en columna obligatoria,
+  // CHECK incumplido): son errores del cliente, no del servidor.
+  const CODIGOS_DATO_INVALIDO = {
+    '22P02': 'Alguno de los datos o identificadores enviados tiene un formato inválido.',
+    '22001': 'Alguno de los textos enviados excede la longitud permitida.',
+    '22003': 'Alguno de los números enviados está fuera del rango permitido.',
+    '22007': 'Alguna de las fechas enviadas no es válida.',
+    '22008': 'Alguna de las fechas enviadas no es válida.',
+    '23502': 'Falta un dato obligatorio.',
+    '23514': 'Alguno de los datos enviados no cumple las reglas de validación.',
+  };
+  if (CODIGOS_DATO_INVALIDO[err.code]) {
+    return res.status(400).json({ error: CODIGOS_DATO_INVALIDO[err.code] });
+  }
+
+  // Errores del parser de body (JSON mal formado, demasiado grande): 4xx con
+  // mensaje genérico en vez de filtrar el texto interno del parser.
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: 'El cuerpo de la petición no es JSON válido.' });
+  }
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'El cuerpo de la petición es demasiado grande.' });
+  }
+
   const status = err.status || 500;
   const mensaje = err.status ? err.message : 'Ocurrió un error interno en el servidor.';
   return res.status(status).json({ error: mensaje });

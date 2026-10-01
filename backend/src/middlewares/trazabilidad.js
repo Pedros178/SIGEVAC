@@ -2,7 +2,11 @@ const AuditoriaModel = require('../models/auditoriaModel');
 const BitacoraModel = require('../models/bitacoraModel');
 
 const METODOS_MUTAN = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
-const CAMPOS_SENSIBLES = new Set(['password', 'password_hash', 'refresh_token', 'token', 'nueva_password']);
+// Cualquier clave cuyo nombre sugiera un secreto se oculta (contraseñas,
+// tokens, códigos 2FA, secretos TOTP, desafíos). Se evalúa por patrón en
+// vez de una lista fija para no volver a dejar pasar campos nuevos.
+const PATRON_SENSIBLE = /pass|token|secre|codigo|desafio|clave|hash|authorization|cookie/i;
+const CAMPOS_SENSIBLES = { has: (clave) => PATRON_SENSIBLE.test(clave) };
 
 function sanitizarBody(body) {
   if (!body || typeof body !== 'object') return undefined;

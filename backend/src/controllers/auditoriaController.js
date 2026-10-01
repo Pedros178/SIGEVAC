@@ -1,6 +1,8 @@
 const AuditoriaModel = require('../models/auditoriaModel');
 const BitacoraModel = require('../models/bitacoraModel');
 const { aCsv } = require('../utils/exportadores');
+const { leerPaginacion } = require('../utils/paginacion');
+const { esUuid } = require('../utils/identificadores');
 
 const AuditoriaController = {
   /**
@@ -8,13 +10,15 @@ const AuditoriaController = {
    */
   async listarAuditoria(req, res, next) {
     try {
-      const { modulo, usuarioId, limit = 50, offset = 0 } = req.query;
+      const { modulo, usuarioId } = req.query;
+      if (usuarioId !== undefined && !esUuid(usuarioId)) return res.status(400).json({ error: 'usuarioId no es un identificador válido.' });
+      const { limit, offset } = leerPaginacion(req.query);
       const registros = await AuditoriaModel.listar({
         asociacionId: req.usuario.asociacionId,
-        moduloAfectado: modulo,
+        moduloAfectado: typeof modulo === 'string' ? modulo : undefined,
         usuarioId,
-        limit: Number(limit),
-        offset: Number(offset),
+        limit,
+        offset,
       });
       return res.json({ auditoria: registros });
     } catch (err) {
@@ -27,13 +31,13 @@ const AuditoriaController = {
    */
   async listarBitacora(req, res, next) {
     try {
-      const { propia, evento, formato, limit = 50, offset = 0 } = req.query;
+      const { propia, evento, formato } = req.query;
       const esExportacion = formato === 'csv';
       const registros = await BitacoraModel.listar({
+        asociacionId: req.usuario.asociacionId,
         usuarioId: propia === 'true' ? req.usuario.id : undefined,
-        evento,
-        limit: Math.min(Math.max(Number(limit) || 50, 1), esExportacion ? 10000 : 200),
-        offset: esExportacion ? 0 : Math.max(Number(offset) || 0, 0),
+        evento: typeof evento === 'string' ? evento : undefined,
+        ...(esExportacion ? { limit: leerPaginacion(req.query, { maximo: 10000 }).limit, offset: 0 } : leerPaginacion(req.query)),
       });
       if (esExportacion) {
         const csv = aCsv({

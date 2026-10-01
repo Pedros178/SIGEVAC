@@ -23,28 +23,36 @@ const PortalController = {
       if (!esCorreoValido(correo)) return res.status(400).json({ error: 'El correo no tiene un formato válido.' });
 
       const correoNormalizado = correo.toLowerCase().trim();
+      // Sin LIMIT 1: un tutor con varios hijos (o un correo compartido) debe
+      // recibir acceso a TODOS sus voluntarios, no solo a uno arbitrario.
       const { rows } = await query(
-        `SELECT v.id, v.nombre, v.correo AS correo_propio, t.correo AS correo_tutor
+        `SELECT DISTINCT v.id, v.nombre, v.apellido_paterno
          FROM voluntarios v
          LEFT JOIN tutores t ON t.voluntario_id = v.id
          WHERE lower(v.correo) = $1 OR lower(t.correo) = $1
-         LIMIT 1`,
+         ORDER BY v.nombre
+         LIMIT 10`,
         [correoNormalizado]
       );
 
       if (rows.length > 0) {
-        const voluntario = rows[0];
-        const token = generarTokenPortal(voluntario.id);
-        const enlace = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/portal?token=${token}`;
+        const base = process.env.FRONTEND_URL || 'http://localhost:5173';
+        const enlaces = rows.map((v) => ({
+          nombre: `${v.nombre} ${v.apellido_paterno || ''}`.trim(),
+          enlace: `${base}/portal?token=${generarTokenPortal(v.id)}`,
+        }));
+        const lista = enlaces
+          .map((e) => `<li>${escaparHtml(e.nombre)}: <a href="${e.enlace}">${e.enlace}</a></li>`)
+          .join('');
 
         const resultado = await enviarCorreo({
           to: correoNormalizado,
           subject: 'SIGEVAC — Acceso a tu expediente de voluntariado',
-          html: `<p>Hola,</p><p>Aquí tienes tu enlace de acceso al expediente de ${escaparHtml(voluntario.nombre)} (válido por 24 horas):</p><p><a href="${enlace}">${enlace}</a></p>`,
+          html: `<p>Hola,</p><p>Aquí tienes tu enlace de acceso (válido por 24 horas):</p><ul>${lista}</ul>`,
         });
 
         if (process.env.NODE_ENV === 'development' && !resultado.enviado) {
-          console.log(`[DEV] Enlace de acceso al portal: ${enlace}`);
+          enlaces.forEach((e) => console.log(`[DEV] Enlace de acceso al portal (${e.nombre}): ${e.enlace}`));
         }
       }
 

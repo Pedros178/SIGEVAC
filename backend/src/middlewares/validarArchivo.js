@@ -39,6 +39,13 @@ async function verificarContenidoArchivo(req, res, next) {
   if (!req.file) return next();
 
   try {
+    // Windows/Excel envía los .csv como 'application/vnd.ms-excel': si el
+    // nombre termina en .csv se trata como CSV (y se valida como texto plano
+    // más abajo), en vez de rechazarlo por no ser un binario Excel real.
+    const nombreEsCsv = /\.csv$/i.test(req.file.originalname || '');
+    if (nombreEsCsv && ['application/vnd.ms-excel', 'application/csv', 'text/csv'].includes(req.file.mimetype)) {
+      req.file.mimetype = 'text/csv';
+    }
     const tipoDeclarado = req.file.mimetype;
     const esCsvDeclarado = tipoDeclarado === 'text/csv';
 

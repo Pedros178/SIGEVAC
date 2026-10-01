@@ -20,6 +20,7 @@ router.put('/:id', requierePermiso('usuarios.editar'), UsuarioController.actuali
 // Multi-asociación: cruza el aislamiento de datos entre asociaciones,
 // por lo que se reserva a super_admin (no basta con usuarios.editar).
 router.get('/:id/asociaciones', requierePermiso('usuarios.consultar'), UsuarioController.listarAsociaciones);
+router.post('/:id/2fa/reset', requiereRol('super_admin'), UsuarioController.reiniciar2FA);
 router.post('/:id/asociaciones', requiereRol('super_admin'), UsuarioController.agregarAsociacion);
 router.delete('/:id/asociaciones/:asociacionId', requiereRol('super_admin'), UsuarioController.quitarAsociacion);
 

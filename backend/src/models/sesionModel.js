@@ -20,6 +20,28 @@ const SesionModel = {
     return rows[0] || null;
   },
 
+  /** Busca por hash incluyendo sesiones revocadas/rotadas (para detectar reuso de un refresh token). */
+  async buscarCualquieraPorHash(refreshTokenHash) {
+    const { rows } = await query(
+      `SELECT * FROM sesiones WHERE refresh_token_hash = $1 AND expira_en > now()`,
+      [refreshTokenHash]
+    );
+    return rows[0] || null;
+  },
+
+  /**
+   * Rota atómicamente: marca la sesión como revocada/rotada SOLO si seguía
+   * vigente. Devuelve true si esta llamada ganó la rotación (dos refresh
+   * simultáneos con la misma cookie no pueden rotar ambos).
+   */
+  async rotar(sesionId) {
+    const { rowCount } = await query(
+      `UPDATE sesiones SET revocado = true, rotado_en = now() WHERE id = $1 AND revocado = false`,
+      [sesionId]
+    );
+    return rowCount === 1;
+  },
+
   async revocar(sesionId) {
     await query(`UPDATE sesiones SET revocado = true WHERE id = $1`, [sesionId]);
   },

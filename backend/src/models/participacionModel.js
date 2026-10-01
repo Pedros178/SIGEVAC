@@ -3,20 +3,48 @@ const { getClient } = require('../config/database');
 const HoraServicioModel = require('./horaServicioModel');
 
 const ParticipacionModel = {
-  async inscribir(actividadId, voluntarioId) {
-    const { rows } = await query(
-      `INSERT INTO participaciones (actividad_id, voluntario_id)
-       VALUES ($1, $2)
-       ON CONFLICT (actividad_id, voluntario_id) DO NOTHING
-       RETURNING *`,
-      [actividadId, voluntarioId]
-    );
-    if (rows[0]) return { participacion: rows[0], yaExistia: false };
-    const existente = await query(
-      `SELECT * FROM participaciones WHERE actividad_id = $1 AND voluntario_id = $2`,
-      [actividadId, voluntarioId]
-    );
-    return { participacion: existente.rows[0], yaExistia: true };
+  /**
+   * Inscribe a un voluntario en una actividad de forma transaccional:
+   * bloquea la fila de la actividad (serializa inscripciones simultáneas),
+   * exige que el voluntario sea de la MISMA asociación y esté activo, y
+   * respeta el cupo. Devuelve { participacion, yaExistia } o { error, status }.
+   */
+  async inscribir(actividadId, voluntarioId, asociacionId) {
+    const client = await getClient();
+    try {
+      await client.query('BEGIN');
+      const act = await client.query(
+        `SELECT id, cupo FROM actividades WHERE id = $1 AND asociacion_id = $2 FOR UPDATE`,
+        [actividadId, asociacionId]
+      );
+      if (!act.rows[0]) { await client.query('ROLLBACK'); return { error: 'Actividad no encontrada.', status: 404 }; }
+      const vol = await client.query(
+        `SELECT activo FROM voluntarios WHERE id = $1 AND asociacion_id = $2`,
+        [voluntarioId, asociacionId]
+      );
+      if (!vol.rows[0]) { await client.query('ROLLBACK'); return { error: 'Voluntario no encontrado.', status: 404 }; }
+      if (!vol.rows[0].activo) { await client.query('ROLLBACK'); return { error: 'El voluntario está inactivo y no puede inscribirse.', status: 409 }; }
+
+      const existente = await client.query(
+        `SELECT * FROM participaciones WHERE actividad_id = $1 AND voluntario_id = $2`,
+        [actividadId, voluntarioId]
+      );
+      if (existente.rows[0]) { await client.query('ROLLBACK'); return { participacion: existente.rows[0], yaExistia: true }; }
+
+      if (act.rows[0].cupo !== null) {
+        const { rows } = await client.query(`SELECT COUNT(*)::int AS total FROM participaciones WHERE actividad_id = $1`, [actividadId]);
+        if (rows[0].total >= act.rows[0].cupo) { await client.query('ROLLBACK'); return { error: 'La actividad ya alcanzó su cupo.', status: 409 }; }
+      }
+      const { rows } = await client.query(
+        `INSERT INTO participaciones (actividad_id, voluntario_id) VALUES ($1, $2) RETURNING *`,
+        [actividadId, voluntarioId]
+      );
+      await client.query('COMMIT');
+      return { participacion: rows[0], yaExistia: false };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally { client.release(); }
   },
 
   async listarPorActividad(actividadId) {

@@ -42,7 +42,8 @@ describe('Autenticación de dos factores (2FA / TOTP)', () => {
   test('POST /auth/2fa/setup regresa un secreto y un QR (aquí truena si otplib está mal usado)', async () => {
     const respuesta = await request(app)
       .post('/api/auth/2fa/setup')
-      .set('Authorization', `Bearer ${tokenUsuario2FA}`);
+      .set('Authorization', `Bearer ${tokenUsuario2FA}`)
+      .send({ password: PASSWORD });
     expect(respuesta.status).toBe(200);
     expect(respuesta.body.secreto).toEqual(expect.any(String));
     expect(respuesta.body.qr).toMatch(/^data:image\/png;base64,/);
@@ -57,7 +58,7 @@ describe('Autenticación de dos factores (2FA / TOTP)', () => {
   });
 
   test('activar 2FA con el código correcto (generado con el mismo secreto) responde 200', async () => {
-    const setup = await request(app).post('/api/auth/2fa/setup').set('Authorization', `Bearer ${tokenUsuario2FA}`);
+    const setup = await request(app).post('/api/auth/2fa/setup').set('Authorization', `Bearer ${tokenUsuario2FA}`).send({ password: PASSWORD });
     const codigoValido = authenticator.generate(setup.body.secreto);
 
     const respuesta = await request(app)
@@ -110,11 +111,16 @@ describe('Autenticación de dos factores (2FA / TOTP)', () => {
   });
 
   test('desactivar 2FA con el código correcto responde 200 y el siguiente login ya no lo pide', async () => {
+    // El código del login anterior ya se consumió (anti-replay): se simula que
+    // pasó la siguiente ventana de 30 s, como le ocurriría a un usuario real.
+    const ahora = Date.now();
+    const reloj = jest.spyOn(Date, 'now').mockReturnValue(ahora + 31_000);
     const codigoValido = authenticator.generate(global.__secreto2FA);
     const desactivar = await request(app)
       .post('/api/auth/2fa/disable')
       .set('Authorization', `Bearer ${tokenUsuario2FA}`)
       .send({ codigo: codigoValido });
+    reloj.mockRestore();
     expect(desactivar.status).toBe(200);
 
     const login = await request(app).post('/api/auth/login').send({ correo: correoUsuario2FA, password: PASSWORD });

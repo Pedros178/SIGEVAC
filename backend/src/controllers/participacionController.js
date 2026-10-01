@@ -1,4 +1,5 @@
 const ParticipacionModel = require('../models/participacionModel');
+const { esUuid } = require('../utils/identificadores');
 const AsistenciaModel = require('../models/asistenciaModel');
 const { evaluarInsignias } = require('../services/gamificacionService');
 
@@ -8,9 +9,13 @@ const ParticipacionController = {
    */
   async inscribir(req, res, next) {
     try {
-      const { voluntarioId } = req.body;
+      const { voluntarioId } = req.body || {};
       if (!voluntarioId) return res.status(400).json({ error: 'voluntarioId es obligatorio.' });
-      const { participacion, yaExistia } = await ParticipacionModel.inscribir(req.params.actividadId, voluntarioId);
+      if (!esUuid(voluntarioId)) return res.status(400).json({ error: 'voluntarioId no es un identificador válido.' });
+      const { participacion, yaExistia, error, status } = await ParticipacionModel.inscribir(
+        req.params.actividadId, voluntarioId, req.usuario.asociacionId
+      );
+      if (error) return res.status(status).json({ error });
       if (yaExistia) {
         return res.status(409).json({ error: 'Este voluntario ya está inscrito en esta actividad.', participacion });
       }

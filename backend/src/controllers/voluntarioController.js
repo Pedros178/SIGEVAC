@@ -1,4 +1,5 @@
 const fs = require('fs');
+const { leerPaginacion } = require('../utils/paginacion');
 const ExcelJS = require('exceljs');
 const { getClient } = require('../config/database');
 const VoluntarioModel = require('../models/voluntarioModel');
@@ -6,12 +7,22 @@ const TutorModel = require('../models/tutorModel');
 const { ExpedienteModel } = require('../models/expedienteModel');
 const { almacenamientoRemoto, guardarArchivo, eliminarArchivo, obtenerArchivo } = require('../config/storage');
 
-function esMenorDeEdad(fechaNacimiento) {
-  const hoy = new Date();
-  const nacimiento = new Date(fechaNacimiento);
-  const edad = hoy.getFullYear() - nacimiento.getFullYear()
-    - (hoy < new Date(hoy.getFullYear(), nacimiento.getMonth(), nacimiento.getDate()) ? 1 : 0);
-  return edad < 18;
+const { esMenorDeEdad } = require('../utils/edad');
+const { validarDatosVoluntario } = require('../utils/validarVoluntario');
+
+const MAX_FILAS_IMPORTACION = 2000;
+
+/** Convierte el valor de una celda (texto, número, fecha, fórmula, hipervínculo) a texto/fecha ISO. */
+function valorDeCelda(valor) {
+  if (valor === null || valor === undefined || valor === '') return undefined;
+  if (valor instanceof Date) return valor.toISOString().slice(0, 10);
+  if (typeof valor === 'object') {
+    if (valor.richText) return valor.richText.map((t) => t.text).join('');
+    if (valor.text !== undefined) return String(valor.text);
+    if (valor.result !== undefined) return valorDeCelda(valor.result);
+    return undefined;
+  }
+  return typeof valor === 'string' ? valor.trim() || undefined : String(valor);
 }
 
 const VoluntarioController = {
@@ -20,14 +31,15 @@ const VoluntarioController = {
    */
   async listar(req, res, next) {
     try {
-      const { activo, busqueda, tipo, limit = 50, offset = 0 } = req.query;
+      const { activo, busqueda, tipo } = req.query;
+      const { limit, offset } = leerPaginacion(req.query);
       const voluntarios = await VoluntarioModel.listar({
         asociacionId: req.usuario.asociacionId,
         activo: activo === undefined ? null : activo === 'true',
         busqueda,
-        tipo: tipo ? Number(tipo) : null,
-        limit: Number(limit),
-        offset: Number(offset),
+        tipo: Number.isInteger(Number(tipo)) && Number(tipo) > 0 ? Number(tipo) : null,
+        limit,
+        offset,
       });
       return res.json({ voluntarios });
     } catch (err) {
@@ -61,12 +73,10 @@ const VoluntarioController = {
   async crear(req, res, next) {
     const client = await getClient();
     try {
-      const datos = req.body;
-      if (!datos.nombre || !datos.fechaNacimiento) {
-        return res.status(400).json({ error: 'nombre y fechaNacimiento son obligatorios.' });
-      }
-      if (datos.fechaIngreso && Number.isNaN(new Date(datos.fechaIngreso).getTime())) {
-        return res.status(400).json({ error: 'La fecha de ingreso no es válida.' });
+      const datos = req.body || {};
+      const errorValidacion = validarDatosVoluntario(datos);
+      if (errorValidacion) {
+        return res.status(400).json({ error: errorValidacion });
       }
 
       const menorEdad = esMenorDeEdad(datos.fechaNacimiento);
@@ -98,65 +108,98 @@ const VoluntarioController = {
       const voluntarioCompleto = await VoluntarioModel.obtenerPorId(voluntario.id);
       return res.status(201).json({ voluntario: voluntarioCompleto });
     } catch (err) {
-      await client.query('ROLLBACK');
+      await client.query('ROLLBACK').catch(() => {});
       return next(err);
     } finally {
       client.release();
     }
   },
 
+  /**
+   * POST /api/voluntarios/importar  (multipart, campo "archivo": CSV o XLSX)
+   * Columnas: nombre, fechaNacimiento (obligatorias) y apellidoPaterno,
+   * apellidoMaterno, curp, correo, telefono (opcionales). Cada fila se valida
+   * con las mismas reglas que el alta manual y se inserta en un SAVEPOINT:
+   * una fila inválida o duplicada se reporta y NO tumba al resto.
+   */
   async importar(req, res, next) {
-    const client = await getClient();
+    let client;
     try {
       if (!req.file) return res.status(400).json({ error: 'Adjunta un archivo CSV o XLSX.' });
       const workbook = new ExcelJS.Workbook();
-      if (req.file.mimetype === 'text/csv' || req.file.originalname.toLowerCase().endsWith('.csv')) {
-        await workbook.csv.load(req.file.path);
-      } else {
-        await workbook.xlsx.load(req.file.path);
+      const esCsv = req.file.mimetype === 'text/csv' || req.file.originalname.toLowerCase().endsWith('.csv');
+      try {
+        if (esCsv) await workbook.csv.readFile(req.file.path);
+        else await workbook.xlsx.readFile(req.file.path);
+      } catch {
+        return res.status(400).json({ error: 'No se pudo leer el archivo. Verifica que sea un CSV o XLSX válido.' });
       }
       const hoja = workbook.worksheets[0];
       if (!hoja || hoja.rowCount < 2) return res.status(400).json({ error: 'El archivo debe contener encabezados y al menos una fila.' });
-      const encabezados = hoja.getRow(1).values.map((v) => String(v || '').trim().toLowerCase());
+      if (hoja.rowCount - 1 > MAX_FILAS_IMPORTACION) {
+        return res.status(400).json({ error: `El archivo excede el máximo de ${MAX_FILAS_IMPORTACION} filas por importación.` });
+      }
+      const encabezados = hoja.getRow(1).values.map((v) => String(valorDeCelda(v) || '').trim().toLowerCase());
       const indice = (nombre) => encabezados.indexOf(nombre);
       const nombreIndex = indice('nombre');
       const fechaIndex = indice('fechanacimiento');
       if (nombreIndex < 0 || fechaIndex < 0) return res.status(400).json({ error: 'Se requieren las columnas nombre y fechaNacimiento.' });
 
-      const filasValidas = [];
-      const errores = [];
+      const filas = [];
       hoja.eachRow((fila, numero) => {
         if (numero === 1) return;
-        const valores = fila.values;
-        const datos = {
-          nombre: valores[nombreIndex], fechaNacimiento: valores[fechaIndex],
-          apellidoPaterno: valores[indice('apellidopaterno')], apellidoMaterno: valores[indice('apellidomaterno')],
-          curp: valores[indice('curp')], correo: valores[indice('correo')], telefono: valores[indice('telefono')],
-        };
-        if (!datos.nombre || !datos.fechaNacimiento || Number.isNaN(new Date(datos.fechaNacimiento).getTime())) {
-          errores.push({ fila: numero, error: 'nombre y fechaNacimiento válidos son obligatorios.' });
-        } else filasValidas.push({ numero, datos });
+        const v = fila.values;
+        const leer = (col) => (indice(col) >= 0 ? valorDeCelda(v[indice(col)]) : undefined);
+        filas.push({
+          numero,
+          datos: {
+            nombre: valorDeCelda(v[nombreIndex]), fechaNacimiento: valorDeCelda(v[fechaIndex]),
+            apellidoPaterno: leer('apellidopaterno'), apellidoMaterno: leer('apellidomaterno'),
+            curp: leer('curp'), correo: leer('correo'), telefono: leer('telefono'),
+          },
+        });
       });
+
+      client = await getClient();
       await client.query('BEGIN');
       const importados = [];
-      for (const fila of filasValidas) {
-        const duplicado = await client.query(
-          `SELECT id FROM voluntarios WHERE asociacion_id = $1 AND (($2::text IS NOT NULL AND curp = $2) OR ($3::text IS NOT NULL AND lower(correo) = lower($3))) LIMIT 1`,
-          [req.usuario.asociacionId, fila.datos.curp || null, fila.datos.correo || null]
-        );
-        if (duplicado.rows.length) { errores.push({ fila: fila.numero, error: 'CURP o correo ya registrado.' }); continue; }
-        const voluntario = await VoluntarioModel.crear({ ...fila.datos, asociacionId: req.usuario.asociacionId, creadoPor: req.usuario.id }, client);
-        await ExpedienteModel.crearParaVoluntario(voluntario.id, esMenorDeEdad(fila.datos.fechaNacimiento), client);
-        importados.push(voluntario.id);
+      const errores = [];
+      for (const fila of filas) {
+        const errorFila = validarDatosVoluntario(fila.datos);
+        if (errorFila) { errores.push({ fila: fila.numero, error: errorFila }); continue; }
+        if (esMenorDeEdad(fila.datos.fechaNacimiento)) {
+          errores.push({ fila: fila.numero, error: 'Es menor de edad: requiere datos de tutor, regístralo con el alta manual.' });
+          continue;
+        }
+        await client.query('SAVEPOINT fila');
+        try {
+          const duplicado = await client.query(
+            `SELECT id FROM voluntarios WHERE asociacion_id = $1 AND (($2::text IS NOT NULL AND curp = $2) OR ($3::text IS NOT NULL AND lower(correo) = lower($3))) LIMIT 1`,
+            [req.usuario.asociacionId, fila.datos.curp || null, fila.datos.correo || null]
+          );
+          if (duplicado.rows.length) {
+            await client.query('ROLLBACK TO SAVEPOINT fila');
+            errores.push({ fila: fila.numero, error: 'CURP o correo ya registrado.' });
+            continue;
+          }
+          const voluntario = await VoluntarioModel.crear({ ...fila.datos, asociacionId: req.usuario.asociacionId, creadoPor: req.usuario.id }, client);
+          await ExpedienteModel.crearParaVoluntario(voluntario.id, false, client);
+          await client.query('RELEASE SAVEPOINT fila');
+          importados.push(voluntario.id);
+        } catch (errFila) {
+          await client.query('ROLLBACK TO SAVEPOINT fila');
+          errores.push({ fila: fila.numero, error: errFila.code === '23505' ? 'CURP o folio duplicado.' : 'No se pudo registrar esta fila.' });
+        }
       }
       await client.query('COMMIT');
-      fs.unlink(req.file.path, () => {});
       return res.status(201).json({ importados: importados.length, errores });
     } catch (err) {
-      await client.query('ROLLBACK');
-      if (req.file) fs.unlink(req.file.path, () => {});
+      if (client) await client.query('ROLLBACK').catch(() => {});
       return next(err);
-    } finally { client.release(); }
+    } finally {
+      if (client) client.release();
+      if (req.file) fs.unlink(req.file.path, () => {});
+    }
   },
 
   /**
@@ -164,9 +207,8 @@ const VoluntarioController = {
    */
   async actualizar(req, res, next) {
     try {
-      if (req.body.fechaNacimiento && Number.isNaN(new Date(req.body.fechaNacimiento).getTime())) {
-        return res.status(400).json({ error: 'La fecha de nacimiento no es válida.' });
-      }
+      const errorValidacion = validarDatosVoluntario(req.body, { parcial: true });
+      if (errorValidacion) return res.status(400).json({ error: errorValidacion });
       const esMenor = req.body.fechaNacimiento ? esMenorDeEdad(req.body.fechaNacimiento) : null;
       if (esMenor === true && !req.body.tutor?.nombre) {
         const actual = await VoluntarioModel.obtenerPorId(req.params.id);
@@ -270,7 +312,11 @@ const VoluntarioController = {
       }
       try {
         const contenido = await obtenerArchivo(voluntario.fotografia_url);
-        res.type('image').send(contenido);
+        const { fileTypeFromBuffer } = await import('file-type');
+        const tipo = await fileTypeFromBuffer(contenido);
+        res.set('Content-Type', tipo?.mime?.startsWith('image/') ? tipo.mime : 'application/octet-stream');
+        res.set('X-Content-Type-Options', 'nosniff');
+        res.send(contenido);
         return;
       } catch {
         return res.status(404).json({ error: 'La fotografía ya no existe en el almacenamiento.' });

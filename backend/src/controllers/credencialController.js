@@ -72,7 +72,7 @@ const CredencialController = {
    */
   async validarPorCodigo(req, res, next) {
     try {
-      const voluntario = await QrModel.buscarVoluntarioPorCodigo(req.params.codigo);
+      const voluntario = await QrModel.buscarVoluntarioPorCodigo(req.params.codigo, req.usuario.asociacionId);
       if (!voluntario) return res.status(404).json({ error: 'Código QR no reconocido.' });
       return res.json({ voluntario });
     } catch (err) {

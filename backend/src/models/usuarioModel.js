@@ -1,4 +1,5 @@
 const { query } = require('../config/database');
+const { cifrar, descifrar } = require('../utils/cifrado');
 
 const UsuarioModel = {
   async crear({ nombre, correo, passwordHash, asociacionId }) {
@@ -27,11 +28,13 @@ const UsuarioModel = {
 
   async buscarSeguridadPorId(id) {
     const { rows } = await query(
-      `SELECT id, nombre, correo, password_hash, activo, two_factor_secret, two_factor_activo
+      `SELECT id, nombre, correo, password_hash, activo, two_factor_secret, two_factor_activo,
+              two_factor_ultimo_paso, intentos_fallidos, bloqueado_hasta
        FROM usuarios WHERE id = $1`,
       [id]
     );
-    return rows[0] || null;
+    if (!rows[0]) return null;
+    return { ...rows[0], two_factor_secret: descifrar(rows[0].two_factor_secret) };
   },
 
   async buscarPorId(id) {
@@ -47,7 +50,8 @@ const UsuarioModel = {
     const { rows } = await query(
       `SELECT id, nombre, correo, asociacion_id, activo, ultimo_login, creado_en
        FROM usuarios
-       WHERE ($1::uuid IS NULL OR asociacion_id = $1)
+       WHERE ($1::uuid IS NULL OR asociacion_id = $1
+              OR EXISTS (SELECT 1 FROM usuario_asociaciones ua WHERE ua.usuario_id = usuarios.id AND ua.asociacion_id = $1))
        ORDER BY creado_en DESC
        LIMIT $2 OFFSET $3`,
       [asociacionId || null, limit, offset]
@@ -96,9 +100,10 @@ const UsuarioModel = {
 
   async guardarConfiguracion2FA(usuarioId, secreto, activo) {
     const { rows } = await query(
-      `UPDATE usuarios SET two_factor_secret = $2, two_factor_activo = $3, actualizado_en = now()
+      `UPDATE usuarios SET two_factor_secret = $2, two_factor_activo = $3,
+              two_factor_ultimo_paso = NULL, actualizado_en = now()
        WHERE id = $1 RETURNING id, two_factor_activo`,
-      [usuarioId, secreto, activo]
+      [usuarioId, secreto ? cifrar(secreto) : null, activo]
     );
     return rows[0];
   },
@@ -126,6 +131,62 @@ const UsuarioModel = {
       [usuarioId, maxIntentos, minutosBloqueo]
     );
     return rows[0];
+  },
+
+  /** Registra un código TOTP usado; false si ese paso (o uno posterior) ya se consumió (replay). */
+  async consumirPasoTotp(usuarioId, paso) {
+    const { rowCount } = await query(
+      `UPDATE usuarios SET two_factor_ultimo_paso = $2
+       WHERE id = $1 AND (two_factor_ultimo_paso IS NULL OR two_factor_ultimo_paso < $2)`,
+      [usuarioId, paso]
+    );
+    return rowCount === 1;
+  },
+
+  /** true si el usuario pertenece a la asociación (N:M o columna heredada). */
+  async estaEnAsociacion(usuarioId, asociacionId) {
+    if (!asociacionId) return false;
+    const { rows } = await query(
+      `SELECT 1 FROM usuarios u
+       WHERE u.id = $1 AND (u.asociacion_id = $2
+         OR EXISTS (SELECT 1 FROM usuario_asociaciones ua WHERE ua.usuario_id = u.id AND ua.asociacion_id = $2))`,
+      [usuarioId, asociacionId]
+    );
+    return rows.length > 0;
+  },
+
+  async esSuperAdmin(usuarioId) {
+    const { rows } = await query(
+      `SELECT 1 FROM usuarios_roles ur JOIN roles r ON r.id = ur.rol_id
+       WHERE ur.usuario_id = $1 AND r.nombre = 'super_admin'`,
+      [usuarioId]
+    );
+    return rows.length > 0;
+  },
+
+  async contarSuperAdminsActivos() {
+    const { rows } = await query(
+      `SELECT COUNT(*)::int AS total FROM usuarios u
+       JOIN usuarios_roles ur ON ur.usuario_id = u.id JOIN roles r ON r.id = ur.rol_id
+       WHERE r.nombre = 'super_admin' AND u.activo = true`
+    );
+    return rows[0].total;
+  },
+
+  /** Estado vigente (activo, roles, pertenencia) que se revalida en CADA petición autenticada. */
+  async estadoDeSesion(usuarioId, asociacionId) {
+    const { rows } = await query(
+      `SELECT u.activo,
+              COALESCE((SELECT json_agg(json_build_object('id', r.id, 'nombre', r.nombre))
+                        FROM usuarios_roles ur JOIN roles r ON r.id = ur.rol_id
+                        WHERE ur.usuario_id = u.id), '[]'::json) AS roles,
+              ($2::uuid IS NULL OR u.asociacion_id = $2
+                OR EXISTS (SELECT 1 FROM usuario_asociaciones ua
+                           WHERE ua.usuario_id = u.id AND ua.asociacion_id = $2)) AS pertenece
+       FROM usuarios u WHERE u.id = $1`,
+      [usuarioId, asociacionId || null]
+    );
+    return rows[0] || null;
   },
 
   async actualizar(usuarioId, { nombre, activo }) {

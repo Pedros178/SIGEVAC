@@ -1,9 +1,11 @@
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 function generarAccessToken(usuario) {
   return jwt.sign(
     {
+      tipo: 'access',
       sub: usuario.id,
       correo: usuario.correo,
       roles: usuario.roles || [],
@@ -16,7 +18,9 @@ function generarAccessToken(usuario) {
 
 function generarRefreshToken(usuario) {
   return jwt.sign(
-    { sub: usuario.id, asociacion_id: usuario.asociacion_id || null },
+    // jti: dos refresh emitidos en el mismo segundo para el mismo usuario
+    // serían idénticos (mismo hash en BD) sin un identificador único.
+    { sub: usuario.id, asociacion_id: usuario.asociacion_id || null, jti: crypto.randomUUID() },
     process.env.JWT_REFRESH_SECRET,
     { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' }
   );
