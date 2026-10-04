@@ -31,6 +31,16 @@ const InventarioPrestamoModel = {
       const articulo = rows[0];
       if (!articulo) throw Object.assign(new Error('Artículo no encontrado.'), { status: 404 });
       if (!articulo.es_prestable) throw Object.assign(new Error('Este artículo no está marcado como prestable.'), { status: 400 });
+      // Los vínculos opcionales deben pertenecer a la MISMA asociación (antes se
+      // aceptaba cualquier UUID y el listado devolvía nombres de voluntarios ajenos)
+      if (voluntarioId) {
+        const v = await client.query(`SELECT 1 FROM voluntarios WHERE id = $1 AND asociacion_id = $2`, [voluntarioId, asociacionId]);
+        if (!v.rows[0]) throw Object.assign(new Error('Voluntario no encontrado.'), { status: 404 });
+      }
+      if (actividadId) {
+        const a = await client.query(`SELECT 1 FROM actividades WHERE id = $1 AND asociacion_id = $2`, [actividadId, asociacionId]);
+        if (!a.rows[0]) throw Object.assign(new Error('Actividad no encontrada.'), { status: 404 });
+      }
       if (articulo.existencias < cantidad) throw Object.assign(new Error('No hay existencias suficientes para prestar esa cantidad.'), { status: 400 });
 
       await client.query(`UPDATE inventario_articulos SET existencias = existencias - $2, actualizado_en = now() WHERE id = $1`, [articuloId, cantidad]);

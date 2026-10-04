@@ -88,7 +88,7 @@ export default function Voluntarios() {
         <form onSubmit={manejarBusqueda} style={{ display: 'flex', gap: 10, marginBottom: 18 }}>
           <input
             className="sg-input"
-            placeholder="Buscar por nombre o CURP…"
+            placeholder="Buscar por nombre, CURP, correo o folio…"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             style={{ maxWidth: 320 }}

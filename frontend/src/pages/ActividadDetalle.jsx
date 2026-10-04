@@ -284,7 +284,7 @@ export default function ActividadDetalle() {
         <div style={{ position: 'relative', marginBottom: 24, maxWidth: 400 }}>
           <input
             className="sg-input"
-            placeholder="Buscar por nombre o CURP…"
+            placeholder="Buscar por nombre, CURP, correo o folio…"
             value={busquedaVoluntario}
             onChange={(e) => buscarVoluntarios(e.target.value)}
           />

@@ -106,7 +106,12 @@ npm run db:seed    # roles, permisos, catálogos, asociación y super_admin
 
 Verifica en el panel de Supabase (**Table Editor**) que las tablas aparecieron.
 
-> `npm run db:setup` está pensado para una base vacía. Para una base ya existente, aplica únicamente las migraciones pendientes en orden, sin volver a ejecutar `schema.sql` sobre tablas creadas.
+> `npm run db:setup` es idempotente: sobre una base vacía aplica `schema.sql`; sobre una base existente se
+> omite `schema.sql` y solo corren las migraciones que no consten en `schema_migrations` (cada una en su
+> propia transacción, con un lock para que dos despliegues simultáneos no se pisen). Es seguro ejecutarlo en cada despliegue.
+>
+> `npm run db:seed` imprime **una sola vez** la contraseña inicial del super_admin si no definiste
+> `SEED_ADMIN_PASSWORD`. Guárdala y cámbiala en el primer inicio de sesión.
 
 ## Paso 3 — Desplegar el backend en Render
 
@@ -203,6 +208,25 @@ Todas están documentadas con comentarios en `backend/.env.example`. Genera secr
 ```bash
 openssl rand -hex 32
 ```
+
+**Con `NODE_ENV=production` el servidor se niega a arrancar** si `JWT_SECRET`/`JWT_REFRESH_SECRET` son
+cortos (<32 caracteres), iguales entre sí o parecen valores de ejemplo, si `DATABASE_URL` usa una contraseña
+trivial, o si faltan las variables de Supabase.
+
+| Variable | Obligatoria en producción | Para qué sirve |
+|---|---|---|
+| `DATABASE_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `FRONTEND_URL`, `SUPABASE_*` | Sí | Núcleo del sistema |
+| `TWO_FACTOR_ENC_KEY` | Recomendada | Llave que cifra los secretos 2FA en la BD (si falta se deriva de `JWT_SECRET`; rotar éste sin fijar la llave invalidaría los 2FA existentes) |
+| `BITACORA_RETENCION_DIAS` | No (365) | La bitácora se purga a diario (03:00); mínimo 30 días |
+| `RESPALDOS_MAXIMO` | No (10) | Respaldos conservados; los más antiguos se eliminan |
+| `ENABLE_API_DOCS` | No (`false`) | Publica Swagger (`/api/docs`) también en producción |
+| `LOGIN_RATE_LIMIT_MAX` | No (20) | Intentos por IP y ventana de 15 min en cada endpoint de autenticación |
+| `FOLIO_PREFIJO` | No (`SC`) | Prefijo de los folios de voluntario |
+
+**Limitaciones conocidas a vigilar:**
+- El rate limit y el bloqueo por IP usan memoria del proceso: con **más de una instancia** detrás de un balanceador cada una cuenta por separado (el bloqueo de cuenta por intentos fallidos sí es compartido, porque vive en la BD).
+- Los respaldos usan `pg_dump`, que debe existir en el servidor. Con Supabase Storage configurado el archivo se sube al bucket (y se borra del disco local); sin él queda en `backups/`, que en Render es efímero.
+- Recuperación de 2FA: si un usuario pierde su dispositivo, un super_admin puede reiniciarlo con `POST /api/usuarios/:id/2fa/reset`.
 
 ## Pruebas antes de publicar
 

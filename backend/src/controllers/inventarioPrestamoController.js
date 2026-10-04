@@ -1,3 +1,5 @@
+const { fechaValida } = require('../utils/edad');
+const { esUuid } = require('../utils/identificadores');
 const InventarioPrestamoModel = require('../models/inventarioPrestamoModel');
 
 const InventarioPrestamoController = {
@@ -13,6 +15,15 @@ const InventarioPrestamoController = {
       const { responsable, fecha_devolucion_programada: fechaDevolucionProgramada } = req.body;
       if (!req.body.articulo_id || !responsable || !fechaDevolucionProgramada || !Number.isInteger(cantidad) || cantidad < 1) {
         return res.status(400).json({ error: 'articulo_id, responsable, cantidad válida y fecha_devolucion_programada son obligatorios.' });
+      }
+      if (typeof responsable !== 'string' || responsable.length > 150) return res.status(400).json({ error: 'responsable debe ser texto de hasta 150 caracteres.' });
+      if (cantidad > 1_000_000) return res.status(400).json({ error: 'La cantidad excede el máximo permitido.' });
+      if (!fechaValida(fechaDevolucionProgramada)) return res.status(400).json({ error: 'fecha_devolucion_programada no es una fecha válida (AAAA-MM-DD).' });
+      if (String(fechaDevolucionProgramada).slice(0, 10) < new Date().toLocaleDateString('en-CA')) {
+        return res.status(400).json({ error: 'La fecha de devolución no puede ser anterior a hoy.' });
+      }
+      for (const campo of ['articulo_id', 'voluntario_id', 'actividad_id']) {
+        if (req.body[campo] && !esUuid(req.body[campo])) return res.status(400).json({ error: `${campo} no es un identificador válido.` });
       }
       const prestamo = await InventarioPrestamoModel.crear({
         asociacionId: req.usuario.asociacionId,

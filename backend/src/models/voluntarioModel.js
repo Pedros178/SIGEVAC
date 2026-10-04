@@ -1,6 +1,17 @@
 const { query, getClient } = require('../config/database');
 const { esMenorDeEdad } = require('../utils/edad');
 
+/**
+ * Normaliza el texto del buscador: recorta, descarta lo vacío y escapa los
+ * comodines de LIKE (%, _, \) para que se busquen literalmente. Cada palabra
+ * debe aparecer en nombre completo, CURP, correo o folio (AND entre palabras).
+ */
+function textoBusqueda(valor) {
+  if (typeof valor !== 'string') return null;
+  const limpio = valor.trim().slice(0, 100);
+  return limpio ? limpio.replace(/[\\%_]/g, '\\$&') : null;
+}
+
 const PREFIJO_FOLIO = (process.env.FOLIO_PREFIJO || 'SC').replace(/[^A-Za-z0-9]/g, '').slice(0, 8) || 'SC';
 
 const VoluntarioModel = {
@@ -120,13 +131,19 @@ const VoluntarioModel = {
        LEFT JOIN expedientes ex ON ex.voluntario_id = v.id
        WHERE v.asociacion_id = $1
          AND ($2::boolean IS NULL OR v.activo = $2)
-         AND ($3::text IS NULL OR v.nombre ILIKE '%' || $3 || '%' OR v.curp ILIKE '%' || $3 || '%')
+         AND ($3::text IS NULL OR NOT EXISTS (
+               SELECT 1 FROM unnest(string_to_array($3, ' ')) AS palabra
+               WHERE palabra <> '' AND NOT (
+                 concat_ws(' ', v.nombre, v.apellido_paterno, v.apellido_materno, v.curp, v.correo, v.numero_voluntario)
+                   ILIKE '%' || palabra || '%'
+               )
+             ))
          AND ($4::int IS NULL OR EXISTS (
                SELECT 1 FROM voluntarios_tipos vt WHERE vt.voluntario_id = v.id AND vt.tipo_voluntario_id = $4
              ))
        ORDER BY v.creado_en DESC
        LIMIT $5 OFFSET $6`,
-      [asociacionId, activo ?? null, busqueda || null, tipo || null, limit, offset]
+      [asociacionId, activo ?? null, textoBusqueda(busqueda), tipo || null, limit, offset]
     );
     return rows;
   },

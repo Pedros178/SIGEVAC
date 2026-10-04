@@ -102,8 +102,17 @@ npm run db:seed      # Roles, permisos, catálogos, asociación y usuario super_
 npm run dev           # http://localhost:4000
 ```
 
-Usuario inicial (definido en `.env` como `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`):
-`admin@suenosdecomedia.org` / `Sigevac#2026` — **cámbiala después del primer login**.
+Usuario inicial: el correo sale de `SEED_ADMIN_EMAIL` (por defecto `admin@suenosdecomedia.org`).
+Si `SEED_ADMIN_PASSWORD` está vacío en `.env`, **`npm run db:seed` genera una contraseña aleatoria y la
+muestra una sola vez en la consola** (cópiala en ese momento). Si prefieres fijarla tú, debe cumplir la
+política de contraseñas; el valor de ejemplo público `Sigevac#2026` se rechaza en producción.
+Cámbiala tras el primer login desde *Administración → Cambiar contraseña* (`POST /api/auth/change-password`).
+
+> `npm run db:setup` es **idempotente**: registra cada migración aplicada en la tabla `schema_migrations`
+> y puede ejecutarse en cada despliegue; solo aplica lo pendiente (cada migración en su propia transacción).
+
+> Cuentas de demostración (`npm run db:seed:demo`, contraseña pública `Demo#2026`): **solo para desarrollo**;
+> el script se niega a correr con `NODE_ENV=production`.
 
 ### 3. Frontend
 

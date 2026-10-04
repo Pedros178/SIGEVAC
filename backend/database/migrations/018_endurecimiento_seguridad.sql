@@ -34,3 +34,10 @@ INSERT INTO estados_mx (nombre) VALUES
  ('Nuevo León'),('Oaxaca'),('Puebla'),('Querétaro'),('Quintana Roo'),('San Luis Potosí'),
  ('Sinaloa'),('Sonora'),('Tabasco'),('Tamaulipas'),('Tlaxcala'),('Veracruz'),('Yucatán'),('Zacatecas')
 ON CONFLICT (nombre) DO NOTHING;
+
+-- SKU de inventario único POR ASOCIACIÓN (antes UNIQUE global, pero el
+-- consecutivo se calculaba por asociación: dos asociaciones generaban el
+-- mismo SKU y la segunda recibía un 409 aleatorio al crear artículos).
+ALTER TABLE inventario_articulos DROP CONSTRAINT IF EXISTS inventario_articulos_sku_key;
+CREATE UNIQUE INDEX IF NOT EXISTS inventario_articulos_asociacion_sku_idx
+    ON inventario_articulos (asociacion_id, sku) WHERE sku IS NOT NULL;

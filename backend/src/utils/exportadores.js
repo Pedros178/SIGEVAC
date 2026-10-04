@@ -1,9 +1,20 @@
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
 
-function escaparCsv(valor) {
-  if (valor === null || valor === undefined) return '';
-  const texto = String(valor);
+// Un texto que empieza con = + - @ (o tab/retorno) lo interpreta Excel/Calc como
+// FÓRMULA al abrir el CSV (inyección de fórmulas: =HYPERLINK, DDE, exfiltración).
+// Los datos de voluntarios los escriben usuarios, así que se antepone un
+// apóstrofo, que el programa de hojas de cálculo muestra como texto literal.
+// Los números reales (tipo number) y las cadenas puramente numéricas no se tocan.
+function neutralizarFormula(valor) {
+  if (typeof valor !== 'string') return valor;
+  if (/^[=+\-@\t\r]/.test(valor) && !/^[-+]?\d+([.,]\d+)?$/.test(valor)) return `'${valor}`;
+  return valor;
+}
+
+function escaparCsv(valorOriginal) {
+  if (valorOriginal === null || valorOriginal === undefined) return '';
+  const texto = String(neutralizarFormula(valorOriginal));
   if (/[",\n]/.test(texto)) return `"${texto.replace(/"/g, '""')}"`;
   return texto;
 }
@@ -75,4 +86,5 @@ function aPdf({ titulo, columnas, filas }) {
   });
 }
 
-module.exports = { aCsv, aXlsx, aPdf };
+module.exports = {
+  neutralizarFormula, aCsv, aXlsx, aPdf };

@@ -5,17 +5,23 @@ const { query, getClient } = require('../config/database');
 // nombre de la categoría como prefijo (si existe) más un secuencial anual,
 // siguiendo el mismo patrón legible que ya se usaba en el proyecto de
 // activos fijos que inspiró este módulo (PREFIJO-AÑO-SECUENCIAL).
-async function generarCodigos({ asociacionId, categoriaId }) {
+async function generarCodigos(client, { asociacionId, categoriaId }) {
   const year = new Date().getFullYear().toString().slice(2);
   let prefijo = 'ART';
   if (categoriaId) {
-    const { rows } = await query(`SELECT nombre FROM inventario_categorias WHERE id = $1`, [categoriaId]);
+    const { rows } = await client.query(`SELECT nombre FROM inventario_categorias WHERE id = $1`, [categoriaId]);
     if (rows[0]?.nombre) prefijo = rows[0].nombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').substring(0, 3).toUpperCase();
   }
-  const { rows: countRows } = await query(
-    `SELECT COUNT(*) FROM inventario_articulos WHERE asociacion_id = $1`, [asociacionId]
+  // Consecutivo = MAYOR existente + 1 (no COUNT+1, que repite números al borrar
+  // artículos) y calculado bajo un lock por asociación para que dos altas
+  // simultáneas no obtengan el mismo número.
+  await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`sku:${asociacionId}`]);
+  const { rows: maxRows } = await client.query(
+    `SELECT COALESCE(MAX((substring(sku from '[0-9]+$'))::int), 0) AS maximo
+     FROM inventario_articulos WHERE asociacion_id = $1 AND sku ~ '[0-9]+$'`,
+    [asociacionId]
   );
-  const secuencial = String(parseInt(countRows[0].count, 10) + 1).padStart(4, '0');
+  const secuencial = String(Number(maxRows[0].maximo) + 1).padStart(4, '0');
   const sufijo = crypto.randomBytes(3).toString('hex').toUpperCase();
   return {
     sku: `${prefijo}-${year}-${secuencial}`,
@@ -80,15 +86,25 @@ const InventarioModel = {
   },
 
   async crear({ asociacionId, nombre, descripcion, unidad, minimo, categoriaId, subcategoriaId, estadoFisico, ubicacion, esPrestable }) {
-    const { sku, codigoQr } = await generarCodigos({ asociacionId, categoriaId });
-    const { rows } = await query(
+    const client = await getClient();
+    try {
+      await client.query('BEGIN');
+      const { sku, codigoQr } = await generarCodigos(client, { asociacionId, categoriaId });
+      const { rows } = await client.query(
       `INSERT INTO inventario_articulos
          (asociacion_id, nombre, descripcion, unidad, minimo, categoria_id, subcategoria_id, estado_fisico, ubicacion, sku, codigo_qr, es_prestable)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
       [asociacionId, nombre, descripcion || null, unidad || 'pieza', minimo || 0,
         categoriaId || null, subcategoriaId || null, estadoFisico || 'bueno', ubicacion || null, sku, codigoQr, Boolean(esPrestable)]
-    );
-    return rows[0];
+      );
+      await client.query('COMMIT');
+      return rows[0];
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw error;
+    } finally {
+      client.release();
+    }
   },
 
   async actualizar(id, asociacionId, { nombre, descripcion, unidad, minimo, categoriaId, subcategoriaId, estadoFisico, ubicacion, esPrestable }) {
