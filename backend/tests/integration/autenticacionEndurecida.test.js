@@ -75,7 +75,9 @@ describe('M-06 / M-07 el access token se revalida en cada petición', () => {
     const l = await login(correo);
     expect((await request(app).get('/api/dashboard').set('Authorization', `Bearer ${l.body.access_token}`)).status).toBe(200);
     await request(app).put(`/api/usuarios/${id}`).set('Authorization', `Bearer ${adminToken}`).send({ activo: false });
-    expect((await request(app).get('/api/dashboard').set('Authorization', `Bearer ${l.body.access_token}`)).status).toBe(401);
+    const tras = await request(app).get('/api/dashboard').set('Authorization', `Bearer ${l.body.access_token}`);
+    expect(tras.status).toBe(401);
+    expect(tras.body.code).toBe('SESION_INVALIDA');
   });
   test('quitar un rol surte efecto sin esperar a que expire el token', async () => {
     const { correo, id } = await crearUsuario('super_admin');

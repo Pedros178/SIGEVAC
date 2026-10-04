@@ -51,6 +51,14 @@ api.interceptors.response.use(
   async (error) => {
     const original = error.config;
     const esTokenExpirado = error.response?.status === 401 && error.response?.data?.code === 'TOKEN_EXPIRED';
+    // El backend revalida al usuario en cada petición: si lo desactivaron, le quitaron
+    // acceso o su sesión ya no es válida, no tiene sentido reintentar con refresh.
+    const sesionInvalida = error.response?.status === 401 && error.response?.data?.code === 'SESION_INVALIDA';
+    if (sesionInvalida) {
+      limpiarAccessToken();
+      if (!window.location.pathname.startsWith('/login')) window.location.href = '/login';
+      return Promise.reject(error);
+    }
 
     if (esTokenExpirado && !original._retry) {
       original._retry = true;

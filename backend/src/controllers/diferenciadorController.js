@@ -78,12 +78,30 @@ const DiferenciadorController = {
    */
   async firmar(req, res, next) {
     try {
-      const { imagenPngBase64, firmanteNombre, firmanteTipo } = req.body;
-      if (!imagenPngBase64 || !imagenPngBase64.startsWith('data:image/png;base64,')) {
+      const { imagenPngBase64, firmanteNombre, firmanteTipo } = req.body || {};
+      const PREFIJO_PNG = 'data:image/png;base64,';
+      if (typeof imagenPngBase64 !== 'string' || !imagenPngBase64.startsWith(PREFIJO_PNG)) {
         return res.status(400).json({ error: 'Se requiere "imagenPngBase64" como data URL PNG válida.' });
       }
-      if (!firmanteNombre) {
+      // El contenido debe ser realmente un PNG de tamaño razonable (una firma dibujada
+      // pesa pocos KB): antes se aceptaba cualquier texto, SVG o 1.5 MB de basura.
+      const base64 = imagenPngBase64.slice(PREFIJO_PNG.length);
+      const binario = /^[A-Za-z0-9+/]+={0,2}$/.test(base64) ? Buffer.from(base64, 'base64') : null;
+      const FIRMA_PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+      if (!binario || binario.length < FIRMA_PNG.length || !binario.subarray(0, 8).equals(FIRMA_PNG)) {
+        return res.status(400).json({ error: 'La firma no es una imagen PNG válida.' });
+      }
+      if (binario.length > 300 * 1024) {
+        return res.status(400).json({ error: 'La imagen de la firma excede el tamaño máximo (300 KB).' });
+      }
+      if (typeof firmanteNombre !== 'string' || !firmanteNombre.trim()) {
         return res.status(400).json({ error: 'Se requiere el nombre de quien firma.' });
+      }
+      if (firmanteNombre.trim().length > 150) {
+        return res.status(400).json({ error: 'El nombre del firmante no puede exceder 150 caracteres.' });
+      }
+      if (firmanteTipo !== undefined && !['voluntario', 'tutor'].includes(firmanteTipo)) {
+        return res.status(400).json({ error: 'firmanteTipo debe ser "voluntario" o "tutor".' });
       }
 
       const documento = await DocumentoModel.obtenerPorId(req.params.id);
@@ -91,7 +109,7 @@ const DiferenciadorController = {
 
       const firma = await FirmaModel.crear({
         documentoId: documento.id,
-        firmanteNombre,
+        firmanteNombre: firmanteNombre.trim(),
         firmanteTipo,
         imagenPngBase64,
         ip: req.ip,

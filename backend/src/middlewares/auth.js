@@ -37,7 +37,7 @@ async function autenticar(req, res, next) {
   try {
     const estado = await UsuarioModel.estadoDeSesion(payload.sub, payload.asociacion_id || null);
     if (!estado || !estado.activo || !estado.pertenece) {
-      return res.status(401).json({ error: 'La sesión ya no es válida. Inicia sesión de nuevo.' });
+      return res.status(401).json({ error: 'La sesión ya no es válida. Inicia sesión de nuevo.', code: 'SESION_INVALIDA' });
     }
     req.usuario = {
       id: payload.sub,

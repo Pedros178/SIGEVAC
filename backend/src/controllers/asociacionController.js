@@ -72,9 +72,16 @@ const AsociacionController = {
    */
   async crear(req, res, next) {
     try {
-      const { nombre } = req.body;
-      if (!nombre || !nombre.trim()) {
+      const { nombre } = req.body || {};
+      if (typeof nombre !== 'string' || !nombre.trim()) {
         return res.status(400).json({ error: 'El nombre de la asociación es obligatorio.' });
+      }
+      // Todo campo de texto de la asociación debe ser realmente texto (antes un
+      // arreglo u objeto llegaba a la base de datos o provocaba un 500).
+      for (const [campo, valor] of Object.entries(req.body)) {
+        if (valor !== null && valor !== undefined && typeof valor !== 'string' && typeof valor !== 'boolean') {
+          return res.status(400).json({ error: `El campo "${campo}" debe ser texto.` });
+        }
       }
       const asociacion = await AsociacionModel.crear(req.body);
       return res.status(201).json({ asociacion });

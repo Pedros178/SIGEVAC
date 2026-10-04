@@ -8,7 +8,7 @@ const { esMenorDeEdad } = require('../utils/edad');
  */
 function textoBusqueda(valor) {
   if (typeof valor !== 'string') return null;
-  const limpio = valor.trim().slice(0, 100);
+  const limpio = valor.replaceAll('\u0000', '').trim().slice(0, 100);
   return limpio ? limpio.replace(/[\\%_]/g, '\\$&') : null;
 }
 

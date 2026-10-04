@@ -42,3 +42,18 @@ describe('manejo del access token en memoria (services/api.js)', () => {
     expect(window.sessionStorage.length).toBe(0);
   });
 });
+
+describe('sesión invalidada por el backend (usuario desactivado)', () => {
+  test('un 401 con code SESION_INVALIDA limpia el token y manda a /login sin intentar refresh', async () => {
+    const { default: api } = await import('../api.js');
+    guardarAccessToken('token-viejo');
+    const manejador = api.interceptors.response.handlers.find((h) => h && h.rejected).rejected;
+    const original = window.location;
+    delete window.location;
+    window.location = { pathname: '/dashboard', href: '' };
+    await expect(manejador({ config: {}, response: { status: 401, data: { code: 'SESION_INVALIDA' } } })).rejects.toBeTruthy();
+    expect(getAccessToken()).toBeNull();
+    expect(window.location.href).toBe('/login');
+    window.location = original;
+  });
+});

@@ -1,3 +1,4 @@
+import { construirHtmlEtiquetaQr } from '../utils/html.js';
 import React, { useEffect, useState } from 'react';
 import jsQR from 'jsqr';
 import BarraNavegacion from '../components/BarraNavegacion.jsx';
@@ -435,7 +436,8 @@ function DetalleArticulo({ articulo, puedeGestionar, onCerrar, onCambio, onError
       onError('El navegador bloqueó la ventana de impresión. Permite las ventanas emergentes e inténtalo de nuevo.');
       return;
     }
-    ventana.document.write(`<!doctype html><html><head><title>QR - ${articulo.nombre}</title><style>body{font-family:Arial,sans-serif;text-align:center;padding:24px;color:#172b3a}img{width:320px;height:320px;image-rendering:pixelated}h1{font-size:22px;margin:0 0 8px}p{margin:6px 0;font-size:15px}</style></head><body><h1>${articulo.nombre}</h1><p>SKU: ${articulo.sku || '—'}</p><img src="${qrUrl}" alt="Código QR de ${articulo.nombre}"><p>${articulo.codigo_qr || ''}</p><script>window.onload=function(){window.print();}</script></body></html>`);
+    // Todo dato del artículo se escapa: este HTML se escribe con document.write (sin el escapado de React)
+    ventana.document.write(construirHtmlEtiquetaQr(articulo, qrUrl));
     ventana.document.close();
   }
 

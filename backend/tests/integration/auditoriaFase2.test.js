@@ -105,3 +105,46 @@ describe('N-04 búsqueda de voluntarios', () => {
     expect(await buscar('inexistente_xyz')).toBe(0);
   });
 });
+
+describe('N-08 firma electrónica: solo PNG reales y datos acotados', () => {
+  const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+  let t; let docId;
+  beforeAll(async () => {
+    t = await nuevaAsoc().then(coordinadorEn);
+    const v = (await request(app).post('/api/voluntarios').set(H(t)).send({ nombre: 'Firma', fechaNacimiento: '1990-01-01' })).body.voluntario.id;
+    const ex = await request(app).get(`/api/voluntarios/${v}/expediente`).set(H(t));
+    docId = (ex.body.expediente?.documentos || ex.body.documentos)[0].id;
+  });
+  const firmar = (b) => request(app).post(`/api/documentos/${docId}/firmar`).set(H(t)).send(b);
+  test('una firma PNG válida se acepta', async () => {
+    expect((await firmar({ imagenPngBase64: PNG, firmanteNombre: 'Ana', firmanteTipo: 'voluntario' })).status).toBe(201);
+  });
+  test.each([
+    ['texto arbitrario', { imagenPngBase64: 'data:image/png;base64,Tm8gZXMgdW4gUE5H' }],
+    ['SVG con script', { imagenPngBase64: `data:image/png;base64,${Buffer.from('<svg onload=alert(1)>').toString('base64')}` }],
+    ['base64 inválido', { imagenPngBase64: 'data:image/png;base64,@@@@' }],
+    ['imagen enorme', { imagenPngBase64: `data:image/png;base64,${Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(400 * 1024)]).toString('base64')}` }],
+    ['nombre numérico', { imagenPngBase64: PNG, firmanteNombre: 12345 }],
+    ['nombre de 5000 caracteres', { imagenPngBase64: PNG, firmanteNombre: 'N'.repeat(5000) }],
+    ['tipo de firmante arbitrario', { imagenPngBase64: PNG, firmanteNombre: 'Ana', firmanteTipo: 'presidente_mundial' }],
+  ])('%s → 400', async (_n, extra) => {
+    expect((await firmar({ firmanteNombre: 'Ana', ...extra })).status).toBe(400);
+  });
+});
+
+describe('Robustez de entradas hostiles (hallazgos del fuzzing)', () => {
+  test('POST /asociacion con tipos incorrectos → 400, no 500', async () => {
+    for (const body of [{ nombre: 12345 }, { nombre: 'X', correo: ['a'] }, { nombre: ['x'] }, { nombre: { a: 1 } }]) {
+      const r = await request(app).post('/api/asociacion').set(H(admin.access_token)).send(body);
+      expect([r.status, JSON.stringify(body)]).toEqual([400, JSON.stringify(body)]);
+    }
+  });
+  test('un byte NUL en cualquier texto → 400 (PostgreSQL lo rechaza), no 500', async () => {
+    const r = await request(app).post('/api/asociacion').set(H(admin.access_token)).send({ nombre: `Nul\u0000Asoc ${unico()}` });
+    expect(r.status).toBe(400);
+  });
+  test('la búsqueda con NUL no rompe el listado', async () => {
+    const t = await nuevaAsoc().then(coordinadorEn);
+    expect((await request(app).get('/api/voluntarios?busqueda=%00').set(H(t))).status).toBe(200);
+  });
+});

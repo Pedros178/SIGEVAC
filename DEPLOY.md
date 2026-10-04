@@ -32,6 +32,8 @@ Estas limitaciones son normales en cualquier plan gratuito y **no invalidan el p
 
 ## Estado de seguridad de las dependencias
 
+> Última verificación de la auditoría: `npm audit --omit=dev` → **0 vulnerabilidades** en backend y frontend. Queda un aviso de severidad alta en `braces@3.0.3` que solo llega por herramientas de desarrollo (jest, nodemon) y para el que **no existe versión corregida**; no se incluye en producción. Revísalo periódicamente con `npm audit`.
+
 `npm audit` (verificado en esta revisión, corre en CI en cada push/PR):
 
 - **Backend**: `npm audit` → **0 vulnerabilidades**.

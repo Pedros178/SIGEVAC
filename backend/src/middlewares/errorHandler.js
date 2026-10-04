@@ -1,6 +1,5 @@
 /* eslint-disable no-unused-vars */
 function errorHandler(err, req, res, next) {
-  console.error('Error no controlado:', err);
 
   // Errores de Multer (Módulo 8 - gestor de archivos)
   if (err.code === 'LIMIT_FILE_SIZE') {
@@ -24,6 +23,7 @@ function errorHandler(err, req, res, next) {
   // texto demasiado largo, fecha/número ilegibles, nulo en columna obligatoria,
   // CHECK incumplido): son errores del cliente, no del servidor.
   const CODIGOS_DATO_INVALIDO = {
+    '22021': 'Alguno de los textos enviados contiene caracteres no permitidos.',
     '22P02': 'Alguno de los datos o identificadores enviados tiene un formato inválido.',
     '22001': 'Alguno de los textos enviados excede la longitud permitida.',
     '22003': 'Alguno de los números enviados está fuera del rango permitido.',
@@ -45,6 +45,7 @@ function errorHandler(err, req, res, next) {
     return res.status(413).json({ error: 'El cuerpo de la petición es demasiado grande.' });
   }
 
+  console.error('Error no controlado:', err);
   const status = err.status || 500;
   const mensaje = err.status ? err.message : 'Ocurrió un error interno en el servidor.';
   return res.status(status).json({ error: mensaje });
