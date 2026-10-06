@@ -36,6 +36,8 @@ function getDB() {
 export async function encolarAccion(accion) {
   const db = await getDB();
   const id = await db.add('cola_acciones', { ...accion, creadoEn: new Date().toISOString(), intentos: 0 });
+  // Avisa a la barra de estado para que muestre "(N pendientes)" al instante, no en el siguiente ciclo de 30 s
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('sigevac:cola-cambio'));
   return id;
 }
 

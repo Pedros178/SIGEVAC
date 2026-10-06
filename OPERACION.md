@@ -69,7 +69,7 @@ El sistema ya detecta por sí solo la reutilización de un refresh token robado 
 - `GET /api/health` → `{"status":"ok","base_de_datos":"ok"}`. Si `base_de_datos` ≠ `ok`, la API está arriba pero sin BD.
 - Los errores 5xx se escriben en los logs del servidor como `Error no controlado:` (los errores de usuario, 4xx, no).
 - Una ráfaga de respuestas `429` en `/api/auth/*` indica intentos masivos de acceso.
-- `423`/`401` repetidos para una cuenta pueden ser un bloqueo temporal (5 intentos fallidos → 15 min).
+- `401` repetidos para una misma cuenta pueden ser un bloqueo temporal (5 intentos fallidos → 15 min). Por seguridad la respuesta es idéntica a la de una contraseña incorrecta; consulta `usuarios.bloqueado_hasta` en la BD para confirmarlo.
 
 ## 6. Limitaciones conocidas (decisiones de diseño)
 

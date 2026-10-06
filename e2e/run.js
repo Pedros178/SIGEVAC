@@ -351,6 +351,66 @@ async function prueba(nombre, fn) {
     await textoVisible(p, 'Bienvenido');
   });
 
+  await prueba('Todas las pantallas del sistema cargan sin errores de JavaScript ni respuestas 5xx de la API', async ({ nueva }) => {
+    const vols = (await api('GET', '/voluntarios?limit=1', { token: tokenAdmin })).json.voluntarios || [];
+    const acts = (await api('GET', '/actividades', { token: tokenAdmin })).json.actividades || [];
+    const rutas = ['/', '/login', '/solicitud', '/dashboard', '/voluntarios', '/actividades', '/reportes', '/inventario', '/administracion'];
+    if (vols[0]) rutas.push(`/voluntarios/${vols[0].id}`);
+    if (acts[0]) rutas.push(`/actividades/${acts[0].id}`);
+    const p = await nueva();
+    const respuestasMalas = [];
+    p.on('response', (r) => {
+      if (!r.url().startsWith(API)) return;
+      const esperado401 = r.status() === 401 && r.url().endsWith('/auth/refresh'); // sin sesión, es lo normal
+      if ((r.status() >= 500 || (r.status() >= 400 && !esperado401 && r.status() !== 404)) ) respuestasMalas.push(`${r.status()} ${r.request().method()} ${r.url().replace(API, '')}`);
+    });
+    await entrar(p, ADMIN.correo, ADMIN.password);
+    await esperarRuta(p, '/dashboard');
+    for (const r of rutas) {
+      await p.goto(url(r), { waitUntil: 'networkidle2' });
+      await dormir(500);
+      const info = await p.evaluate(() => ({ largo: document.body.innerText.trim().length, error: /something went wrong|algo salió mal|Cannot read|undefined is not/i.test(document.body.innerText) }));
+      if (info.largo < 40) throw new Error(`${r}: la pantalla quedó prácticamente en blanco`);
+      if (info.error) throw new Error(`${r}: muestra un mensaje de error de la aplicación`);
+      if (r.startsWith('/dashboard') === false && ruta(p) === '/login' && !['/', '/login', '/solicitud'].includes(r)) throw new Error(`${r}: te sacó a /login con la sesión activa`);
+    }
+    if (respuestasMalas.length) throw new Error(`Respuestas inesperadas de la API: ${[...new Set(respuestasMalas)].slice(0, 5).join(' ; ')}`);
+  });
+
+  await prueba('Sin conexión: la asistencia se registra en el dispositivo y se sincroniza al volver la red', async ({ nueva }) => {
+    // Preparación por API: una actividad con un voluntario inscrito
+    const act = await api('POST', '/actividades', { token: tokenAdmin, body: { nombre: `E2E-Offline ${unico()}`, fecha: new Date().toLocaleDateString('en-CA') } });
+    if (act.status !== 201) throw new Error(`No se pudo crear la actividad: ${act.status}`);
+    const vol = await api('POST', '/voluntarios', { token: tokenAdmin, body: { nombre: 'E2E Offline', apellidoPaterno: `Asist${unico()}`, fechaNacimiento: '1990-01-01' } });
+    const insc = await api('POST', `/actividades/${act.json.actividad.id}/participaciones`, { token: tokenAdmin, body: { voluntarioId: vol.json.voluntario.id } });
+    if (insc.status !== 201) throw new Error(`No se pudo inscribir: ${insc.status}`);
+    const participacionId = insc.json.participacion.id;
+
+    const p = await nueva();
+    await entrar(p, ADMIN.correo, ADMIN.password);
+    await p.goto(url(`/actividades/${act.json.actividad.id}`), { waitUntil: 'networkidle2' });
+    await textoVisible(p, 'Registrar entrada');
+
+    await p.setOfflineMode(true);
+    await p.evaluate(() => window.dispatchEvent(new Event('offline')));
+    await textoVisible(p, 'Sin conexión');
+    await clickTexto(p, 'Registrar entrada');
+    await textoVisible(p, '1 pendiente');
+
+    // Mientras no hay red, el servidor NO debe tener la entrada
+    const antes = await api('GET', `/actividades/${act.json.actividad.id}/participaciones`, { token: tokenAdmin });
+    const filaAntes = (antes.json.participantes || []).find((x) => x.participacion_id === participacionId || x.id === participacionId);
+    if (filaAntes && filaAntes.hora_entrada) throw new Error('La entrada llegó al servidor estando sin conexión (no debería)');
+
+    await p.setOfflineMode(false);
+    await p.evaluate(() => window.dispatchEvent(new Event('online')));
+    await p.waitForFunction(() => !document.body.innerText.includes('pendiente'), { timeout: 20000 });
+
+    const despues = await api('GET', `/actividades/${act.json.actividad.id}/participaciones`, { token: tokenAdmin });
+    const fila = (despues.json.participantes || []).find((x) => x.participacion_id === participacionId || x.id === participacionId);
+    if (!fila || !fila.hora_entrada) throw new Error('Tras recuperar la conexión la entrada NO quedó registrada en el servidor');
+  });
+
   await prueba('Móvil (375 px): el login no genera desplazamiento horizontal y se puede iniciar sesión', async ({ nueva }) => {
     const p = await nueva({ ancho: 375, alto: 700 });
     await p.goto(url('/login'), { waitUntil: 'networkidle2' });

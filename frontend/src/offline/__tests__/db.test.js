@@ -83,3 +83,14 @@ describe('offline/db — caché de actividades para consulta sin conexión', () 
     expect(enCache).toBeNull();
   });
 });
+
+describe('aviso de cambio en la cola offline', () => {
+  test('encolarAccion emite sigevac:cola-cambio para que la barra de estado actualice el contador', async () => {
+    let avisos = 0;
+    const escucha = () => { avisos += 1; };
+    window.addEventListener('sigevac:cola-cambio', escucha);
+    await encolarAccion({ actividadId: 'a', participacionId: 'p-aviso', tipo: 'entrada', horaCliente: '2026-08-20T10:00:00.000Z' });
+    window.removeEventListener('sigevac:cola-cambio', escucha);
+    expect(avisos).toBe(1);
+  });
+});

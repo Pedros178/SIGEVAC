@@ -45,8 +45,9 @@ function errorHandler(err, req, res, next) {
     return res.status(413).json({ error: 'El cuerpo de la petición es demasiado grande.' });
   }
 
-  console.error('Error no controlado:', err);
   const status = err.status || 500;
+  // Solo los fallos reales del servidor (5xx) se registran como errores; los 4xx son errores del cliente
+  if (status >= 500) console.error('Error no controlado:', err);
   const mensaje = err.status ? err.message : 'Ocurrió un error interno en el servidor.';
   return res.status(status).json({ error: mensaje });
 }

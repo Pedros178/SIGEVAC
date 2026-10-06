@@ -51,6 +51,7 @@ export function useModoOffline(onSincronizado) {
 
     window.addEventListener('online', manejarOnline);
     window.addEventListener('offline', manejarOffline);
+    window.addEventListener('sigevac:cola-cambio', actualizarConteo);
 
     if (navigator.onLine) sincronizarAhora();
 
@@ -61,6 +62,7 @@ export function useModoOffline(onSincronizado) {
     return () => {
       window.removeEventListener('online', manejarOnline);
       window.removeEventListener('offline', manejarOffline);
+      window.removeEventListener('sigevac:cola-cambio', actualizarConteo);
       clearInterval(intervalo);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
