@@ -78,8 +78,9 @@ Con el código ya en GitHub, los Pasos 3 y 4 de esta guía (desplegar en Render)
    - **Database Password**: genera una segura y **guárdala** (la necesitas para el connection string).
    - **Region**: la más cercana a México (p. ej. `us-east-1` o `sa-east-1` si está disponible).
 3. Espera 1-2 minutos a que aprovisione el proyecto.
-4. Ve a **Project Settings → Database → Connection string** y copia el modo **URI**.
-   - Se ve así: `postgresql://postgres:[TU-PASSWORD]@db.xxxxxxxxxxxx.supabase.co:5432/postgres`
+4. Ve a **Project Settings → Database → Connection string** (o el botón **Connect**) y copia el modo **URI**.
+   - La conexión directa se ve así: `postgresql://postgres:[TU-PASSWORD]@db.xxxxxxxxxxxx.supabase.co:5432/postgres`
+   - ⚠️ **Compatibilidad IPv4:** la conexión directa de Supabase puede ser solo IPv6. Si el panel muestra el aviso *"Not IPv4 compatible"*, o el backend/`db:setup` fallan con `ENETUNREACH`, `ENOTFOUND` o `timeout`, usa en su lugar la cadena **Session pooler** (host `aws-0-REGION.pooler.supabase.com`, puerto **5432**, usuario `postgres.TU_PROJECT_REF`). Usa siempre el modo *Session* (puerto 5432), **no** el modo *Transaction* (6543): `db:setup` usa un lock de sesión.
 5. Ve a **Storage → New bucket**, crea un bucket llamado `sigevac-files` y déjalo **privado**. La `SUPABASE_SERVICE_ROLE_KEY` se obtiene en **Project Settings → API** y solo debe configurarse como secreto en Render.
 
 La asociación inicial de SIGEVAC es **Asociación Juvenil "Sueños de Comedia", A.C.**, con municipio **Huamantla** y estado **Tlaxcala**.
@@ -165,6 +166,8 @@ Verifica en el panel de Supabase (**Table Editor**) que las tablas aparecieron.
 
 > **Almacenamiento de archivos:** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` y `SUPABASE_STORAGE_BUCKET` (tabla de arriba) no son opcionales — el backend se niega a arrancar sin ellas en Render o con `NODE_ENV=production`, precisamente para evitar el problema de "las fotos de la galería no cargan" descrito en la sección "Almacenamiento de archivos" al inicio de esta guía. Sin ellas, los archivos se guardarían en el disco local del contenedor, que Render Free borra en cada reinicio/redeploy.
 
+> **Respaldos en Render:** el entorno Node de Render normalmente **no incluye `pg_dump`**; en ese caso el botón de respaldos responde `503`. Mientras no uses una imagen con el cliente de PostgreSQL, haz los respaldos desde tu computadora (ver `OPERACION.md`, sección 2) o activa los respaldos automáticos de un plan de pago de Supabase. **Los respaldos de planes gratuitos no son una estrategia de respaldo.**
+>
 > **Respaldos:** el botón de respaldos ejecuta `pg_dump` en el servidor. En Render debes usar una imagen/entorno que incluya las herramientas cliente de PostgreSQL y confirmar en los logs que `pg_dump --version` está disponible; si falta, la API responde `503` con un mensaje explicativo.
 
 ## Paso 4 — Desplegar el frontend en Render (sitio estático)
@@ -176,13 +179,16 @@ Verifica en el panel de Supabase (**Table Editor**) que las tablas aparecieron.
    - **Root Directory**: `frontend`
    - **Build Command**: `npm install && npm run build`
    - **Publish Directory**: `dist`
-4. En **Environment Variables**, agrega:
+4. **Reglas de reescritura (obligatorio):** en el sitio estático ve a **Redirects/Rewrites** y agrega una regla
+   **Source** `/*` → **Destination** `/index.html` → **Action** `Rewrite`. Sin ella, recargar o abrir directamente
+   `/login`, `/dashboard`, etc. devuelve 404 (la app es de una sola página). `npm run smoke` lo detecta.
+5. En **Environment Variables**, agrega:
 
 | Variable | Valor |
 |---|---|
 | `VITE_API_URL` | `https://sigevac-api.onrender.com/api` (la URL del Paso 3 + `/api`) |
 
-5. Clic en **Create Static Site**. Render te da una URL como `https://sigevac.onrender.com`.
+6. Clic en **Create Static Site**. Render te da una URL como `https://sigevac.onrender.com`.
 
 ## Paso 5 — Conectar el backend con la URL real del frontend (CORS)
 

@@ -19,6 +19,9 @@ Para quien mantiene el sistema en producción. Asume el despliegue descrito en `
 
 - **A demanda:** Administración → Respaldos (`POST /api/respaldos`). Usa `pg_dump`; se conservan los últimos `RESPALDOS_MAXIMO` (10).
   Con Supabase Storage configurado el archivo se guarda en el bucket (carpeta `respaldos/`); sin él, en `backend/backups/` (efímero en Render).
+- **Desde tu computadora (funciona siempre, requiere `pg_dump` instalado con versión ≥ la de tu base):**
+  `pg_dump --no-owner --no-privileges -f respaldo-$(date +%F).sql "postgresql://usuario:clave@host:5432/postgres"`
+  Guarda el archivo cifrado y fuera de la nube pública. Si falla con *"server version mismatch"*, instala un cliente más reciente.
 - **Programado (recomendado):** el sistema NO programa respaldos por sí mismo. Opciones:
   1. Activar los respaldos automáticos de tu proveedor de PostgreSQL (Supabase/Render) — lo más simple y fiable.
   2. Un cron externo (p. ej. GitHub Actions programado) que ejecute `pg_dump "$DATABASE_URL" -F c -f respaldo.dump` y lo suba a almacenamiento privado.
