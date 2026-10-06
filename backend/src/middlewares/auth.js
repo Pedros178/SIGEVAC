@@ -1,6 +1,8 @@
 const { verificarAccessToken } = require('../utils/jwt');
 const UsuarioModel = require('../models/usuarioModel');
 
+const RUTAS_PERMITIDAS_SIN_CAMBIO = ['/auth/change-password', '/auth/me', '/auth/logout', '/auth/refresh'];
+
 /**
  * Verifica que la petición traiga un access token válido en el header
  * Authorization: Bearer <token>, y REVALIDA contra la base de datos que el
@@ -38,6 +40,10 @@ async function autenticar(req, res, next) {
     const estado = await UsuarioModel.estadoDeSesion(payload.sub, payload.asociacion_id || null);
     if (!estado || !estado.activo || !estado.pertenece) {
       return res.status(401).json({ error: 'La sesión ya no es válida. Inicia sesión de nuevo.', code: 'SESION_INVALIDA' });
+    }
+    // Contraseña inicial pendiente de cambio: solo se permiten las rutas necesarias para cambiarla
+    if (estado.debe_cambiar_password && !RUTAS_PERMITIDAS_SIN_CAMBIO.some((r) => req.originalUrl.split('?')[0].endsWith(r))) {
+      return res.status(403).json({ error: 'Debes cambiar tu contraseña inicial antes de continuar.', code: 'PASSWORD_CAMBIO_REQUERIDO' });
     }
     req.usuario = {
       id: payload.sub,

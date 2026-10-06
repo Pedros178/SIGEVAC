@@ -1,3 +1,4 @@
+import CambiarPasswordObligatorio from './pages/CambiarPasswordObligatorio.jsx';
 import { Suspense, lazy } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import RutaProtegida from './components/RutaProtegida.jsx';
@@ -42,6 +43,7 @@ export default function App() {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/solicitud" element={<SolicitudVoluntariado />} />
         <Route path="/certificado" element={<CertificadoPublico />} />
+        <Route path="/cambiar-password" element={<RutaProtegida><CambiarPasswordObligatorio /></RutaProtegida>} />
         <Route
           path="/dashboard"
           element={

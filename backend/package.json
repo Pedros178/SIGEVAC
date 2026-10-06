@@ -13,7 +13,10 @@
     "db:seed:galeria": "node database/seeds/004_seed_galeria.js",
     "test": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --runInBand",
     "test:coverage": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --runInBand --coverage",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "db:restore": "node scripts/restaurar-respaldo.js",
+    "db:verify-restore": "node scripts/verificar-restauracion.js",
+    "smoke": "node scripts/smoke-test.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",

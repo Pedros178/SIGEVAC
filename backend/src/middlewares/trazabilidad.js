@@ -8,13 +8,37 @@ const METODOS_MUTAN = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const PATRON_SENSIBLE = /pass|token|secre|codigo|desafio|clave|hash|authorization|cookie/i;
 const CAMPOS_SENSIBLES = { has: (clave) => PATRON_SENSIBLE.test(clave) };
 
-function sanitizarBody(body) {
-  if (!body || typeof body !== 'object') return undefined;
+const MAX_LONGITUD_TEXTO = 300;   // un texto más largo (p. ej. una imagen base64) se recorta
+const MAX_ELEMENTOS = 20;         // arreglos más largos se recortan
+const MAX_PROFUNDIDAD = 4;
+
+/**
+ * Prepara un valor para guardarlo en auditoría: oculta claves sensibles a CUALQUIER profundidad
+ * (antes solo el primer nivel) y recorta textos, arreglos y anidamiento excesivos (antes se
+ * guardaba el cuerpo completo: una firma en base64 o un texto de 100 000 caracteres engordaban la
+ * tabla y cada respaldo).
+ */
+function sanitizarValor(valor, profundidad = 0) {
+  if (typeof valor === 'string') {
+    return valor.length > MAX_LONGITUD_TEXTO ? `${valor.slice(0, 120)}…[recortado, ${valor.length} caracteres]` : valor;
+  }
+  if (valor === null || typeof valor !== 'object') return valor;
+  if (profundidad >= MAX_PROFUNDIDAD) return '[anidado, omitido]';
+  if (Array.isArray(valor)) {
+    const items = valor.slice(0, MAX_ELEMENTOS).map((v) => sanitizarValor(v, profundidad + 1));
+    if (valor.length > MAX_ELEMENTOS) items.push(`…[${valor.length - MAX_ELEMENTOS} elementos más]`);
+    return items;
+  }
   const limpio = {};
-  for (const [clave, valor] of Object.entries(body)) {
-    limpio[clave] = CAMPOS_SENSIBLES.has(clave) ? '[oculto]' : valor;
+  for (const [clave, v] of Object.entries(valor)) {
+    limpio[clave] = CAMPOS_SENSIBLES.has(clave) ? '[oculto]' : sanitizarValor(v, profundidad + 1);
   }
   return limpio;
+}
+
+function sanitizarBody(body) {
+  if (!body || typeof body !== 'object') return undefined;
+  return sanitizarValor(body);
 }
 
 /**
@@ -55,4 +79,4 @@ function registrarTrazabilidad(req, res, next) {
   next();
 }
 
-module.exports = { registrarTrazabilidad };
+module.exports = { sanitizarBody, registrarTrazabilidad };

@@ -84,6 +84,7 @@ async function registrarUsuarioBase(usuario, asociacionActivaId = null) {
 
   return {
     id: usuario.id,
+    debe_cambiar_password: Boolean(usuario.debe_cambiar_password),
     nombre: usuario.nombre,
     correo: usuario.correo,
     asociacion_id: asociacionActiva?.id || null,

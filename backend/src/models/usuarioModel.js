@@ -39,7 +39,7 @@ const UsuarioModel = {
 
   async buscarPorId(id) {
     const { rows } = await query(
-      `SELECT id, nombre, correo, asociacion_id, activo, ultimo_login, creado_en, two_factor_activo
+      `SELECT id, nombre, correo, asociacion_id, activo, ultimo_login, creado_en, two_factor_activo, debe_cambiar_password
        FROM usuarios WHERE id = $1`,
       [id]
     );
@@ -50,7 +50,8 @@ const UsuarioModel = {
     const { rows } = await query(
       `SELECT id, nombre, correo, asociacion_id, activo, ultimo_login, creado_en
        FROM usuarios
-       WHERE ($1::uuid IS NULL OR asociacion_id = $1
+       WHERE ($1::uuid IS NULL
+              OR (asociacion_id = $1 AND NOT EXISTS (SELECT 1 FROM usuario_asociaciones x WHERE x.usuario_id = usuarios.id))
               OR EXISTS (SELECT 1 FROM usuario_asociaciones ua WHERE ua.usuario_id = usuarios.id AND ua.asociacion_id = $1))
        ORDER BY creado_en DESC
        LIMIT $2 OFFSET $3`,
@@ -93,7 +94,7 @@ const UsuarioModel = {
 
   async actualizarPassword(usuarioId, passwordHash) {
     await query(
-      `UPDATE usuarios SET password_hash = $1, actualizado_en = now() WHERE id = $2`,
+      `UPDATE usuarios SET password_hash = $1, debe_cambiar_password = false, actualizado_en = now() WHERE id = $2`,
       [passwordHash, usuarioId]
     );
   },
@@ -148,7 +149,7 @@ const UsuarioModel = {
     if (!asociacionId) return false;
     const { rows } = await query(
       `SELECT 1 FROM usuarios u
-       WHERE u.id = $1 AND (u.asociacion_id = $2
+       WHERE u.id = $1 AND ((u.asociacion_id = $2 AND NOT EXISTS (SELECT 1 FROM usuario_asociaciones x WHERE x.usuario_id = u.id))
          OR EXISTS (SELECT 1 FROM usuario_asociaciones ua WHERE ua.usuario_id = u.id AND ua.asociacion_id = $2))`,
       [usuarioId, asociacionId]
     );
@@ -176,11 +177,12 @@ const UsuarioModel = {
   /** Estado vigente (activo, roles, pertenencia) que se revalida en CADA petición autenticada. */
   async estadoDeSesion(usuarioId, asociacionId) {
     const { rows } = await query(
-      `SELECT u.activo,
+      `SELECT u.activo, u.debe_cambiar_password,
               COALESCE((SELECT json_agg(json_build_object('id', r.id, 'nombre', r.nombre))
                         FROM usuarios_roles ur JOIN roles r ON r.id = ur.rol_id
                         WHERE ur.usuario_id = u.id), '[]'::json) AS roles,
-              ($2::uuid IS NULL OR u.asociacion_id = $2
+              ($2::uuid IS NULL
+                OR (u.asociacion_id = $2 AND NOT EXISTS (SELECT 1 FROM usuario_asociaciones x WHERE x.usuario_id = u.id))
                 OR EXISTS (SELECT 1 FROM usuario_asociaciones ua
                            WHERE ua.usuario_id = u.id AND ua.asociacion_id = $2)) AS pertenece
        FROM usuarios u WHERE u.id = $1`,
@@ -293,6 +295,13 @@ const UsuarioModel = {
     const quedan = await UsuarioModel.obtenerAsociaciones(usuarioId);
     if (quedan.length > 0 && !quedan.some((a) => a.es_predeterminada)) {
       await UsuarioModel.asignarAsociacion(usuarioId, quedan[0].id, true);
+    }
+    // La columna heredada usuarios.asociacion_id no debe seguir apuntando a una
+    // asociación de la que el usuario ya no forma parte.
+    if (quedan.length > 0) {
+      const restantes = await UsuarioModel.obtenerAsociaciones(usuarioId);
+      const destino = (restantes.find((a) => a.es_predeterminada) || restantes[0]).id;
+      await query(`UPDATE usuarios SET asociacion_id = $2 WHERE id = $1 AND asociacion_id = $3`, [usuarioId, destino, asociacionId]);
     }
   },
 };

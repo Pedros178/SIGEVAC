@@ -51,9 +51,10 @@ async function main() {
 
       const passwordHash = await bcrypt.hash(passwordAdmin, 12);
       const { rows: nuevoUsuario } = await client.query(
-        `INSERT INTO usuarios (nombre, correo, password_hash, asociacion_id)
-         VALUES ($1, $2, $3, $4) RETURNING id`,
-        ['Administrador SIGEVAC', correoAdmin, passwordHash, asociacionId]
+        // Con contraseña GENERADA (la vio quien ejecutó el seed en la consola) se obliga a cambiarla al entrar
+        `INSERT INTO usuarios (nombre, correo, password_hash, asociacion_id, debe_cambiar_password)
+         VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+        ['Administrador SIGEVAC', correoAdmin, passwordHash, asociacionId, passwordGenerada]
       );
 
       if (asociacionId) {

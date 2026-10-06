@@ -165,3 +165,28 @@ describe('M-11 CURP única por asociación y folio robusto', () => {
     expect(r.status).toBe(201);
   });
 });
+
+describe('N-09 quitar a un usuario de una asociación le revoca el acceso de inmediato', () => {
+  test('su sesión de esa asociación deja de ser válida y ya no aparece en su listado', async () => {
+    const asocA = await nuevaAsoc(); const asocB = await nuevaAsoc();
+    const correo = `mov${unico()}@t.local`;
+    const creado = await request(app).post('/api/usuarios').set(H(admin.access_token)).send({ nombre: 'Movido', correo, password: PW, rol: 'coordinador' });
+    const id = creado.body.usuario.id;
+    await query('DELETE FROM usuario_asociaciones WHERE usuario_id = $1', [id]);
+    await query('INSERT INTO usuario_asociaciones (usuario_id, asociacion_id, es_predeterminada) VALUES ($1,$2,true)', [id, asocA]);
+    await query('UPDATE usuarios SET asociacion_id = $2 WHERE id = $1', [id, asocA]);
+    const sesionA = (await request(app).post('/api/auth/login').send({ correo, password: PW })).body.access_token;
+    expect((await request(app).get('/api/dashboard').set(H(sesionA))).status).toBe(200);
+
+    expect((await request(app).post(`/api/usuarios/${id}/asociaciones`).set(H(admin.access_token)).send({ asociacion_id: asocB })).status).toBeLessThan(300);
+    expect((await request(app).delete(`/api/usuarios/${id}/asociaciones/${asocA}`).set(H(admin.access_token))).status).toBe(200);
+
+    const tras = await request(app).get('/api/dashboard').set(H(sesionA));
+    expect(tras.status).toBe(401);
+    expect(tras.body.code).toBe('SESION_INVALIDA');
+    const { rows } = await query('SELECT asociacion_id FROM usuarios WHERE id = $1', [id]);
+    expect(rows[0].asociacion_id).toBe(asocB);
+    const nuevaSesion = (await request(app).post('/api/auth/login').send({ correo, password: PW })).body.access_token;
+    expect((await request(app).get('/api/dashboard').set(H(nuevaSesion))).status).toBe(200);
+  });
+});

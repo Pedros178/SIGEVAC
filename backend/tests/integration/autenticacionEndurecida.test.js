@@ -203,3 +203,29 @@ describe('M-08 la auditoría no guarda secretos', () => {
     expect(todo).not.toContain(PW);
   });
 });
+
+describe('R-7 cambio obligatorio de la contraseña inicial', () => {
+  test('con la marca activa solo se puede cambiar la contraseña; después queda libre', async () => {
+    const { correo, id } = await crearUsuario('presidente');
+    await query('UPDATE usuarios SET debe_cambiar_password = true WHERE id = $1', [id]);
+    const l = await login(correo);
+    expect(l.status).toBe(200);
+    expect(l.body.usuario.debe_cambiar_password).toBe(true);
+    const H = { Authorization: `Bearer ${l.body.access_token}` };
+
+    const bloqueado = await request(app).get('/api/dashboard').set(H);
+    expect(bloqueado.status).toBe(403);
+    expect(bloqueado.body.code).toBe('PASSWORD_CAMBIO_REQUERIDO');
+    expect((await request(app).get('/api/voluntarios').set(H)).status).toBe(403);
+    expect((await request(app).post('/api/usuarios').set(H).send({})).status).toBe(403);
+    expect((await request(app).get('/api/auth/me').set(H)).status).toBe(200); // permitido
+
+    const cambio = await request(app).post('/api/auth/change-password').set(H).send({ password_actual: PW, nueva_password: 'Propia#Clave2026' });
+    expect(cambio.status).toBe(200);
+    expect(cambio.body.usuario.debe_cambiar_password).toBe(false);
+    const H2 = { Authorization: `Bearer ${cambio.body.access_token}` };
+    expect((await request(app).get('/api/dashboard').set(H2)).status).toBe(200);
+    const { rows } = await query('SELECT debe_cambiar_password FROM usuarios WHERE id = $1', [id]);
+    expect(rows[0].debe_cambiar_password).toBe(false);
+  });
+});

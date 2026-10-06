@@ -76,3 +76,23 @@ describe('utilidades de entrada', () => {
     expect(contentDisposition('inline', 'a"\r\nSet-Cookie: x=1')).not.toMatch(/[\r\n]/);
   });
 });
+
+describe('M-08 sanitizado de la auditoría', () => {
+  const { sanitizarBody } = require('../../src/middlewares/trazabilidad');
+  test('oculta secretos a cualquier profundidad', () => {
+    const r = sanitizarBody({ nombre: 'Ana', tutor: { nombre: 'T', password: 'x', datos: { codigo: '123456' } }, lista: [{ token: 'abc' }] });
+    expect(JSON.stringify(r)).not.toMatch(/"x"|123456|abc/);
+    expect(r.nombre).toBe('Ana');
+    expect(r.tutor.nombre).toBe('T');
+  });
+  test('recorta textos enormes (firmas base64) y arreglos largos', () => {
+    const r = sanitizarBody({ imagenPngBase64: `data:image/png;base64,${'A'.repeat(500000)}`, ids: Array.from({ length: 500 }, (_, i) => i) });
+    expect(JSON.stringify(r).length).toBeLessThan(1000);
+    expect(r.imagenPngBase64).toMatch(/recortado, 500022 caracteres/);
+    expect(r.ids).toHaveLength(21);
+  });
+  test('no se cicla ni explota con anidamiento profundo', () => {
+    let o = { fin: 'x' }; for (let i = 0; i < 100; i++) o = { h: o };
+    expect(() => JSON.stringify(sanitizarBody(o))).not.toThrow();
+  });
+});

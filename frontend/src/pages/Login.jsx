@@ -1,3 +1,4 @@
+import { mensajeDeError } from '../utils/errores.js';
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { guardarAccessToken } from '../services/api';
@@ -57,7 +58,7 @@ export default function Login() {
       }
       await loginCompletado(data);
     } catch (err) {
-      setError(err.response?.data?.error || err.message || 'No se pudo iniciar sesión. Intenta de nuevo.');
+      setError(mensajeDeError(err, 'No se pudo iniciar sesión. Intenta de nuevo.'));
     } finally {
       setCargando(false);
     }

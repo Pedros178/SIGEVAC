@@ -193,7 +193,7 @@ export function PanelSeguridad2FA() {
   );
 }
 
-export function PanelCambioPassword() {
+export function PanelCambioPassword({ onExito } = {}) {
   const [actual, setActual] = useState('');
   const [nueva, setNueva] = useState('');
   const [confirmacion, setConfirmacion] = useState('');
@@ -212,6 +212,7 @@ export function PanelCambioPassword() {
       if (data.access_token) guardarAccessToken(data.access_token);
       setMensaje('Contraseña actualizada. Se cerraron tus sesiones en otros dispositivos.');
       setActual(''); setNueva(''); setConfirmacion('');
+      if (onExito) onExito();
     } catch (err) {
       setError(err.response?.data?.error || 'No se pudo cambiar la contraseña.');
     } finally { setCargando(false); }

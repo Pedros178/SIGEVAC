@@ -397,3 +397,14 @@ Ambas integraciones ya usaban APIs reales (Meta Cloud API y Nominatim/OpenStreet
 Ambas quedan configurables por variables de entorno (plantilla e idioma de WhatsApp, código de país, User-Agent y proveedor de geocodificación), documentadas en `backend/.env.example` y en [DEPLOY.md](./DEPLOY.md).
 
 Verificado con la suite completa: **244/244 pruebas backend, 56/56 pruebas frontend**, lint sin errores en ambos proyectos, build de producción del frontend limpio.
+
+
+## Pruebas
+
+| Qué | Comando |
+|---|---|
+| Backend (unitarias + integración, requiere PostgreSQL de pruebas) | `cd backend && npm test` |
+| Frontend | `cd frontend && npm test` |
+| Navegador real (extremo a extremo) | `cd e2e && npm install && npm test` (ver cabecera de `e2e/run.js`) |
+| Despliegue publicado (HTTPS, CORS, cookies, archivos expuestos) | `cd backend && npm run smoke` |
+| Restauración de respaldos | `npm run db:restore` / `npm run db:verify-restore` (ver `OPERACION.md`) |

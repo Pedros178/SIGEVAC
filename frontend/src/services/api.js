@@ -60,6 +60,11 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    if (error.response?.status === 403 && error.response?.data?.code === 'PASSWORD_CAMBIO_REQUERIDO') {
+      if (window.location.pathname !== '/cambiar-password') window.location.href = '/cambiar-password';
+      return Promise.reject(error);
+    }
+
     if (esTokenExpirado && !original._retry) {
       original._retry = true;
       try {

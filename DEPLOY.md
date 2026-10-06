@@ -315,3 +315,9 @@ Revisa los logs del backend, que ya traducen el error de Meta:
 
 **El buscador de lugares del formulario de actividades no encuentra nada / responde 503:**
 Nominatim está limitando las peticiones. Verifica que `NOMINATIM_USER_AGENT` tenga un contacto real que resuelva (una URL o correo válidos) — un User-Agent genérico o con un dominio inexistente es motivo de bloqueo. Si el problema persiste con tráfico alto, apunta `NOMINATIM_URL` a una instancia propia o a un proveedor comercial. Mientras tanto, siempre se puede marcar la ubicación con un clic en el mapa, que no depende del buscador.
+
+
+## Verificación y operación
+
+- **Antes de salir a producción:** sigue `CHECKLIST_PRODUCCION.md` (incluye `npm run smoke` y las pruebas de navegador de `e2e/`).
+- **Operación diaria, respaldos, restauración y rotación de secretos:** `OPERACION.md`.

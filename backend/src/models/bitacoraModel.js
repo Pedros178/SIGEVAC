@@ -17,7 +17,7 @@ const BitacoraModel = {
       `SELECT b.* FROM bitacora b
        WHERE ($1::uuid IS NULL OR b.usuario_id IN (
                SELECT u.id FROM usuarios u
-               WHERE u.asociacion_id = $1
+               WHERE (u.asociacion_id = $1 AND NOT EXISTS (SELECT 1 FROM usuario_asociaciones x WHERE x.usuario_id = u.id))
                   OR EXISTS (SELECT 1 FROM usuario_asociaciones ua WHERE ua.usuario_id = u.id AND ua.asociacion_id = $1)))
          AND ($2::uuid IS NULL OR b.usuario_id = $2)
          AND ($3::text IS NULL OR b.evento = $3)
