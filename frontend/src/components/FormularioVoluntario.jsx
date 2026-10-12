@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import api from '../services/api';
 import EscanerDocumento from './EscanerDocumento.jsx';
 import SelectorUbicacionCatalogo from './SelectorUbicacionCatalogo.jsx';
+import useCatalogo from '../hooks/useCatalogo.js';
 
-const PARENTESCOS = ['madre', 'padre', 'tutor', 'abuelo', 'hermano'];
 
 function calcularEsMenor(fechaNacimiento) {
   if (!fechaNacimiento) return false;
@@ -16,11 +16,13 @@ function calcularEsMenor(fechaNacimiento) {
 
 export default function FormularioVoluntario({ onCreado, onActualizado, onCancelar, voluntarioInicial = null, modoEdicion = false }) {
   const [tiposDisponibles, setTiposDisponibles] = useState([]);
+  const { opciones: opcionesParentesco } = useCatalogo('parentesco');
+  const { opciones: opcionesSangre } = useCatalogo('tipo_sangre');
   const [form, setForm] = useState(() => ({
     nombre: '', apellidoPaterno: '', apellidoMaterno: '', numeroControl: '', fechaNacimiento: '',
     fechaIngreso: new Date().toISOString().slice(0, 10),
     sexo: '', curp: '', correo: '', telefono: '', telefonoFijo: '', telefonoCelular: '', colonia: '',
-    discapacidad: '', enfermedadCronica: '', direccion: '', estado: '', municipio: '',
+    discapacidad: '', enfermedadCronica: '', tipoSangre: '', direccion: '', estado: '', municipio: '',
     contactoEmergenciaNombre: '', contactoEmergenciaDomicilio: '', contactoEmergenciaColonia: '',
     contactoEmergenciaMunicipio: '', contactoEmergenciaEstado: '', contactoEmergenciaTelefonoFijo: '',
     contactoEmergenciaTelefonoCelular: '', contactoEmergenciaCorreo: '', contactoEmergenciaParentesco: '',
@@ -30,7 +32,7 @@ export default function FormularioVoluntario({ onCreado, onActualizado, onCancel
       nombre: voluntarioInicial.nombre || '', apellidoPaterno: voluntarioInicial.apellido_paterno || '', apellidoMaterno: voluntarioInicial.apellido_materno || '', numeroControl: voluntarioInicial.numero_control || '',
       fechaNacimiento: voluntarioInicial.fecha_nacimiento?.slice(0, 10) || '', fechaIngreso: voluntarioInicial.fecha_ingreso?.slice(0, 10) || '', sexo: voluntarioInicial.sexo || '', curp: voluntarioInicial.curp || '',
       correo: voluntarioInicial.correo || '', telefono: voluntarioInicial.telefono || '', telefonoFijo: voluntarioInicial.telefono_fijo || '', telefonoCelular: voluntarioInicial.telefono_celular || '', colonia: voluntarioInicial.colonia || '',
-      discapacidad: voluntarioInicial.discapacidad || '', enfermedadCronica: voluntarioInicial.enfermedad_cronica || '', direccion: voluntarioInicial.direccion || '', estado: voluntarioInicial.estado_nombre || '', municipio: voluntarioInicial.municipio_nombre || '',
+      discapacidad: voluntarioInicial.discapacidad || '', enfermedadCronica: voluntarioInicial.enfermedad_cronica || '', tipoSangre: voluntarioInicial.tipo_sangre || '', direccion: voluntarioInicial.direccion || '', estado: voluntarioInicial.estado_nombre || '', municipio: voluntarioInicial.municipio_nombre || '',
       contactoEmergenciaNombre: voluntarioInicial.contacto_emergencia_nombre || '', contactoEmergenciaDomicilio: voluntarioInicial.contacto_emergencia_domicilio || '', contactoEmergenciaColonia: voluntarioInicial.contacto_emergencia_colonia || '',
       contactoEmergenciaMunicipio: voluntarioInicial.contacto_emergencia_municipio || '', contactoEmergenciaEstado: voluntarioInicial.contacto_emergencia_estado || '', contactoEmergenciaTelefonoFijo: voluntarioInicial.contacto_emergencia_telefono_fijo || '',
       contactoEmergenciaTelefonoCelular: voluntarioInicial.contacto_emergencia_telefono_celular || '', contactoEmergenciaCorreo: voluntarioInicial.contacto_emergencia_correo || '', contactoEmergenciaParentesco: voluntarioInicial.contacto_emergencia_parentesco || '',
@@ -112,6 +114,9 @@ export default function FormularioVoluntario({ onCreado, onActualizado, onCancel
       <div style={styles.fila}>
         <Campo etiqueta="Número de control">
           <input className="sg-input" value={form.numeroControl} onChange={(e) => actualizarCampo('numeroControl', e.target.value)} placeholder="Ej. SS-2026-001" />
+        </Campo>
+        <Campo etiqueta="Tipo de sangre">
+          <SelectCatalogo valor={form.tipoSangre} opciones={opcionesSangre} valorDe="etiqueta" onChange={(v) => actualizarCampo('tipoSangre', v)} />
         </Campo>
         <Campo etiqueta="Discapacidad">
           <input className="sg-input" value={form.discapacidad} onChange={(e) => actualizarCampo('discapacidad', e.target.value)} placeholder="Ninguna o especificar" />
@@ -199,10 +204,7 @@ export default function FormularioVoluntario({ onCreado, onActualizado, onCancel
               <input className="sg-input" value={form.tutor.nombre} onChange={(e) => actualizarTutor('nombre', e.target.value)} required={esMenor} />
             </Campo>
             <Campo etiqueta="Parentesco">
-              <select className="sg-input" value={form.tutor.parentesco} onChange={(e) => actualizarTutor('parentesco', e.target.value)}>
-                <option value="">Selecciona…</option>
-                {PARENTESCOS.map((p) => <option key={p} value={p}>{p}</option>)}
-              </select>
+              <SelectCatalogo valor={form.tutor.parentesco} opciones={opcionesParentesco} valorDe="clave" onChange={(v) => actualizarTutor('parentesco', v)} />
             </Campo>
             <Campo etiqueta="Teléfono del tutor">
               <input className="sg-input" value={form.tutor.telefono} onChange={(e) => actualizarTutor('telefono', e.target.value)} />
@@ -218,7 +220,10 @@ export default function FormularioVoluntario({ onCreado, onActualizado, onCancel
             <input className="sg-input" value={form.contactoEmergenciaNombre} onChange={(e) => actualizarCampo('contactoEmergenciaNombre', e.target.value)} />
           </Campo>
           <Campo etiqueta="Parentesco">
-            <input className="sg-input" value={form.contactoEmergenciaParentesco} onChange={(e) => actualizarCampo('contactoEmergenciaParentesco', e.target.value)} />
+            <input className="sg-input" list="sg-parentescos" value={form.contactoEmergenciaParentesco} onChange={(e) => actualizarCampo('contactoEmergenciaParentesco', e.target.value)} />
+            <datalist id="sg-parentescos">
+              {opcionesParentesco.map((o) => <option key={o.clave} value={o.etiqueta} />)}
+            </datalist>
           </Campo>
         </div>
         <div style={styles.fila}>
@@ -278,6 +283,23 @@ export default function FormularioVoluntario({ onCreado, onActualizado, onCancel
         />
       )}
     </form>
+  );
+}
+
+/**
+ * Select alimentado por un catálogo. `valorDe` indica qué se guarda: la `clave`
+ * o la `etiqueta`. Si el valor actual ya no está en el catálogo (p. ej. dato
+ * antiguo o una opción que se eliminó), se conserva como opción para no borrarlo
+ * al editar.
+ */
+function SelectCatalogo({ valor, opciones, valorDe, onChange }) {
+  const valores = opciones.map((o) => o[valorDe]);
+  return (
+    <select className="sg-input" value={valor} onChange={(e) => onChange(e.target.value)}>
+      <option value="">Selecciona…</option>
+      {valor && !valores.includes(valor) && <option value={valor}>{valor}</option>}
+      {opciones.map((o) => <option key={o.clave} value={o[valorDe]}>{o.etiqueta}</option>)}
+    </select>
   );
 }
 

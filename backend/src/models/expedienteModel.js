@@ -15,9 +15,18 @@ const ExpedienteModel = {
     const expediente = expedienteRows[0];
 
     const aplicaA = esMenorEdad ? ['menor', 'ambos'] : ['mayor', 'ambos'];
+    // Documentos requeridos (Módulo 3): rige el valor predeterminado de cada tipo
+    // salvo que la asociación del voluntario lo haya personalizado en
+    // `asociacion_config_documentos` (otro `aplica_a`, o no obligatorio = no se exige).
     const { rows: tiposDocumento } = await ejecutor.query(
-      `SELECT id FROM tipos_documento WHERE aplica_a = ANY($1::text[])`,
-      [aplicaA]
+      `SELECT td.id
+       FROM tipos_documento td
+       JOIN voluntarios v ON v.id = $1
+       LEFT JOIN asociacion_config_documentos c
+              ON c.tipo_documento_id = td.id AND c.asociacion_id = v.asociacion_id
+       WHERE COALESCE(c.obligatorio, true) = true
+         AND COALESCE(c.aplica_a, td.aplica_a) = ANY($2::text[])`,
+      [voluntarioId, aplicaA]
     );
 
     for (const tipo of tiposDocumento) {

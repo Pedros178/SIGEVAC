@@ -25,6 +25,7 @@ const evidenciaRoutes = require('./evidenciaRoutes');
 const insigniaRoutes = require('./insigniaRoutes');
 const galeriaRoutes = require('./galeriaRoutes');
 const geocodificacionRoutes = require('./geocodificacionRoutes');
+const catalogoRoutes = require('./catalogoRoutes');
 const { query } = require('../config/database');
 
 const router = express.Router();
@@ -50,6 +51,10 @@ router.get('/catalogos/ubicaciones', async (req, res, next) => {
     return next(err);
   }
 });
+
+// Catálogos genéricos (tipo de sangre, parentesco...). `/catalogos/ubicaciones` (arriba)
+// va primero y no se ve afectada por la ruta pública `/catalogos/:tipo`.
+router.use('/catalogos', catalogoRoutes);
 
 // Módulo 22: documentación de la API. En producción NO se publica salvo que se
 // pida explícitamente (ENABLE_API_DOCS=true): expone el mapa completo de endpoints.

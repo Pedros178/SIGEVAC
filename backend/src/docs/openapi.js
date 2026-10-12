@@ -210,6 +210,50 @@ const openapiSpec = {
         responses: { 200: { description: 'Configuración actualizada' } },
       },
     },
+    '/configuracion/documentos-requeridos': {
+      get: { tags: ['Configuración'], summary: 'Tipos de documento con su valor efectivo (obligatorio / a quién aplica) para la asociación', responses: { 200: { description: 'Listado' } } },
+    },
+    '/configuracion/documentos-requeridos/{tipoDocumentoId}': {
+      put: {
+        tags: ['Configuración'], summary: 'Personaliza si un documento es obligatorio y a quién aplica (afecta expedientes nuevos)',
+        parameters: [{ name: 'tipoDocumentoId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', properties: { obligatorio: { type: 'boolean' }, aplica_a: { type: 'string', enum: ['mayor', 'menor', 'ambos'] } } } } } },
+        responses: { 200: { description: 'Configuración guardada' }, 400: { description: 'Datos inválidos' } },
+      },
+      delete: {
+        tags: ['Configuración'], summary: 'Restablece el valor predeterminado del tipo de documento',
+        parameters: [{ name: 'tipoDocumentoId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        responses: { 200: { description: 'Restablecido' } },
+      },
+    },
+    '/catalogos/{tipo}': {
+      get: {
+        tags: ['Catálogos'], summary: 'Opciones de un catálogo (tipo_sangre, parentesco, ...). Público, solo lectura',
+        parameters: [{ name: 'tipo', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { 200: { description: 'Opciones ordenadas' }, 400: { description: 'Tipo inválido' } },
+      },
+    },
+    '/catalogos': {
+      get: { tags: ['Catálogos'], summary: 'Todos los catálogos para administrarlos (requiere configuracion.consultar)', responses: { 200: { description: 'Listado' } } },
+      post: {
+        tags: ['Catálogos'], summary: 'Agrega una opción a un catálogo (requiere configuracion.editar)',
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['tipo', 'clave', 'etiqueta'], properties: { tipo: { type: 'string' }, clave: { type: 'string' }, etiqueta: { type: 'string' }, orden: { type: 'integer' } } } } } },
+        responses: { 201: { description: 'Opción creada' }, 409: { description: 'Ya existe ese tipo y clave' } },
+      },
+    },
+    '/catalogos/{id}': {
+      put: {
+        tags: ['Catálogos'], summary: 'Edita etiqueta u orden de una opción (requiere configuracion.editar)',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', properties: { etiqueta: { type: 'string' }, orden: { type: 'integer' } } } } } },
+        responses: { 200: { description: 'Opción actualizada' } },
+      },
+      delete: {
+        tags: ['Catálogos'], summary: 'Elimina una opción (requiere configuracion.editar)',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        responses: { 200: { description: 'Opción eliminada' } },
+      },
+    },
     '/respaldos': {
       get: { tags: ['Respaldos'], summary: 'Lista los respaldos generados (solo super_admin)', responses: { 200: { description: 'Listado' } } },
       post: { tags: ['Respaldos'], summary: 'Genera un nuevo respaldo completo de la base de datos (solo super_admin)', responses: { 201: { description: 'Respaldo generado' } } },

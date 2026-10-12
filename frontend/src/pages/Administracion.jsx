@@ -18,6 +18,8 @@ const PESTANAS = [
   { id: 'auditoria', etiqueta: 'Auditoría', permiso: 'auditoria.consultar' },
   { id: 'bitacora', etiqueta: 'Bitácora', permiso: 'auditoria.consultar' },
   { id: 'configuracion', etiqueta: 'Configuración', permiso: 'configuracion.consultar' },
+  { id: 'documentos', etiqueta: 'Documentos requeridos', permiso: 'configuracion.consultar' },
+  { id: 'catalogos', etiqueta: 'Catálogos', permiso: 'configuracion.consultar' },
   { id: 'respaldos', etiqueta: 'Respaldos', permiso: 'respaldos.gestionar' },
 ];
 
@@ -73,6 +75,8 @@ export default function Administracion() {
             {pestana === 'auditoria' && <PanelAuditoria />}
             {pestana === 'bitacora' && <PanelBitacora />}
             {pestana === 'configuracion' && <PanelConfiguracion />}
+            {pestana === 'documentos' && <PanelDocumentosRequeridos />}
+            {pestana === 'catalogos' && <PanelCatalogos />}
             {pestana === 'respaldos' && <PanelRespaldos />}
           </>
         )}
@@ -1023,6 +1027,196 @@ function PanelConfiguracion() {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function PanelDocumentosRequeridos() {
+  const { tienePermiso } = useAuth();
+  const puedeEditar = tienePermiso('configuracion.editar');
+  const [docs, setDocs] = useState(null);
+  const [error, setError] = useState('');
+  const [guardandoId, setGuardandoId] = useState(null);
+
+  async function cargar() {
+    try {
+      const { data } = await api.get('/configuracion/documentos-requeridos');
+      setDocs(data.documentos);
+      setError('');
+    } catch (err) {
+      setError(err.response?.status === 403 ? 'No tienes permiso para ver esta sección.' : 'No se pudo cargar la información.');
+    }
+  }
+  useEffect(() => { cargar(); }, []);
+
+  async function cambiar(doc, cambios) {
+    setGuardandoId(doc.tipo_documento_id);
+    try {
+      await api.put(`/configuracion/documentos-requeridos/${doc.tipo_documento_id}`, cambios);
+      await cargar();
+    } catch (err) {
+      setError(err.response?.data?.error || 'No se pudo guardar el cambio.');
+    } finally {
+      setGuardandoId(null);
+    }
+  }
+
+  async function restablecer(doc) {
+    setGuardandoId(doc.tipo_documento_id);
+    try {
+      await api.delete(`/configuracion/documentos-requeridos/${doc.tipo_documento_id}`);
+      await cargar();
+    } catch (err) {
+      setError(err.response?.data?.error || 'No se pudo restablecer.');
+    } finally {
+      setGuardandoId(null);
+    }
+  }
+
+  if (!docs && !error) return <Cargando />;
+  return (
+    <div>
+      <p style={{ fontSize: 13, color: 'var(--sg-ink-soft)', marginBottom: 12 }}>
+        Define qué documentos exige tu asociación y a quién (mayores, menores o ambos). Un documento
+        marcado como no obligatorio no se pide. Los cambios aplican a los <strong>expedientes que se
+        creen a partir de ahora</strong>; los expedientes existentes no se modifican.
+      </p>
+      {error && <Error mensaje={error} />}
+      {docs && (
+        <div style={styles.tabla}>
+          {docs.map((d) => (
+            <div key={d.tipo_documento_id} style={styles.fila}>
+              <div>
+                <strong>{d.etiqueta}</strong>
+                <div style={{ fontSize: 12, color: 'var(--sg-ink-soft)' }}>
+                  {d.personalizado ? `Personalizado (predeterminado: ${d.aplica_a_predeterminado})` : 'Valor predeterminado'}
+                </div>
+              </div>
+              <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <input
+                  type="checkbox" checked={d.obligatorio}
+                  disabled={!puedeEditar || guardandoId === d.tipo_documento_id}
+                  onChange={(e) => cambiar(d, { obligatorio: e.target.checked })}
+                />
+                Obligatorio
+              </label>
+              <select
+                className="sg-input" value={d.aplica_a} style={{ maxWidth: 160 }}
+                disabled={!puedeEditar || guardandoId === d.tipo_documento_id}
+                onChange={(e) => cambiar(d, { aplica_a: e.target.value })}
+                aria-label={`A quién aplica: ${d.etiqueta}`}
+              >
+                <option value="mayor">Solo mayores</option>
+                <option value="menor">Solo menores</option>
+                <option value="ambos">Mayores y menores</option>
+              </select>
+              {puedeEditar && d.personalizado && (
+                <button type="button" style={styles.botonDescargar} onClick={() => restablecer(d)} disabled={guardandoId === d.tipo_documento_id}>
+                  Restablecer
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PanelCatalogos() {
+  const { tienePermiso } = useAuth();
+  const puedeEditar = tienePermiso('configuracion.editar');
+  const [opciones, setOpciones] = useState(null);
+  const [error, setError] = useState('');
+  const [form, setForm] = useState({ tipo: '', clave: '', etiqueta: '', orden: 0 });
+  const [editando, setEditando] = useState({});
+
+  async function cargar() {
+    try {
+      const { data } = await api.get('/catalogos');
+      setOpciones(data.catalogos);
+    } catch (err) {
+      setError(err.response?.status === 403 ? 'No tienes permiso para ver esta sección.' : 'No se pudo cargar la información.');
+    }
+  }
+  useEffect(() => { cargar(); }, []);
+
+  async function agregar(e) {
+    e.preventDefault();
+    setError('');
+    try {
+      await api.post('/catalogos', { ...form, orden: Number(form.orden) || 0 });
+      setForm({ tipo: form.tipo, clave: '', etiqueta: '', orden: 0 });
+      await cargar();
+    } catch (err) {
+      setError(err.response?.data?.error || 'No se pudo agregar la opción.');
+    }
+  }
+
+  async function guardar(opcion) {
+    setError('');
+    try {
+      await api.put(`/catalogos/${opcion.id}`, { etiqueta: editando[opcion.id] });
+      setEditando(({ [opcion.id]: _omitida, ...resto }) => resto);
+      await cargar();
+    } catch (err) {
+      setError(err.response?.data?.error || 'No se pudo guardar.');
+    }
+  }
+
+  async function eliminar(opcion) {
+    if (!window.confirm(`¿Eliminar "${opcion.etiqueta}" de ${opcion.tipo}? Los datos ya guardados no se modifican.`)) return;
+    setError('');
+    try {
+      await api.delete(`/catalogos/${opcion.id}`);
+      await cargar();
+    } catch (err) {
+      setError(err.response?.data?.error || 'No se pudo eliminar.');
+    }
+  }
+
+  if (!opciones && !error) return <Cargando />;
+  const tipos = [...new Set((opciones || []).map((o) => o.tipo))];
+  return (
+    <div>
+      <p style={{ fontSize: 13, color: 'var(--sg-ink-soft)', marginBottom: 12 }}>
+        Listas de opciones que alimentan los formularios (por ejemplo, el tipo de sangre y el parentesco
+        del tutor). Editar o eliminar una opción no cambia los datos que ya se guardaron.
+      </p>
+      {puedeEditar && (
+        <form onSubmit={agregar} style={styles.formLinea}>
+          <input className="sg-input" placeholder="Tipo (p. ej. parentesco)" value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })} required style={{ maxWidth: 200 }} />
+          <input className="sg-input" placeholder="Clave (p. ej. tio)" value={form.clave} onChange={(e) => setForm({ ...form, clave: e.target.value })} required style={{ maxWidth: 160 }} />
+          <input className="sg-input" placeholder="Etiqueta visible" value={form.etiqueta} onChange={(e) => setForm({ ...form, etiqueta: e.target.value })} required style={{ maxWidth: 220 }} />
+          <input className="sg-input" type="number" min="0" placeholder="Orden" value={form.orden} onChange={(e) => setForm({ ...form, orden: e.target.value })} style={{ maxWidth: 90 }} />
+          <button type="submit" className="sg-button-primary" style={{ width: 'auto', padding: '10px 18px' }}>Agregar</button>
+        </form>
+      )}
+      {error && <Error mensaje={error} />}
+      {tipos.map((tipo) => (
+        <div key={tipo} style={{ ...styles.tabla, marginBottom: 14 }}>
+          <div style={{ padding: '8px 12px', fontSize: 12, textTransform: 'uppercase', color: 'var(--sg-ink-soft)', borderBottom: '1px solid var(--sg-border)' }}>{tipo}</div>
+          {opciones.filter((o) => o.tipo === tipo).map((o) => (
+            <div key={o.id} style={styles.fila}>
+              <code style={{ fontSize: 12 }}>{o.clave}</code>
+              {editando[o.id] !== undefined ? (
+                <input className="sg-input" value={editando[o.id]} onChange={(e) => setEditando({ ...editando, [o.id]: e.target.value })} style={{ maxWidth: 260 }} />
+              ) : <span>{o.etiqueta}</span>}
+              <span style={{ fontSize: 12, color: 'var(--sg-ink-soft)' }}>Orden {o.orden}</span>
+              {puedeEditar && (
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {editando[o.id] !== undefined ? (
+                    <button type="button" style={styles.botonDescargar} onClick={() => guardar(o)}>Guardar</button>
+                  ) : (
+                    <button type="button" style={styles.botonDescargar} onClick={() => setEditando({ ...editando, [o.id]: o.etiqueta })}>Editar</button>
+                  )}
+                  <button type="button" style={styles.botonDescargar} onClick={() => eliminar(o)}>Eliminar</button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      ))}
     </div>
   );
 }

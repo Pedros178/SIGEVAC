@@ -37,7 +37,7 @@ CREATE TABLE asociaciones (
 CREATE TABLE asociacion_config_documentos (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     asociacion_id UUID NOT NULL REFERENCES asociaciones(id) ON DELETE CASCADE,
-    tipo_documento_id UUID, -- FK a tipos_documento (definida más abajo)
+    tipo_documento_id UUID, -- FK a tipos_documento (se agrega más abajo; ver migración 020)
     obligatorio BOOLEAN NOT NULL DEFAULT true,
     aplica_a VARCHAR(20) NOT NULL DEFAULT 'mayor' -- mayor | menor | ambos
 );
@@ -233,6 +233,14 @@ CREATE TABLE tipos_documento (
     aplica_a VARCHAR(20) NOT NULL DEFAULT 'ambos', -- mayor | menor | ambos
     tiene_vigencia BOOLEAN NOT NULL DEFAULT false -- p.ej. seguros, identificaciones
 );
+
+-- Restricciones de asociacion_config_documentos (se agregan aquí porque
+-- tipos_documento se define después de esa tabla). Ver migración 020.
+ALTER TABLE asociacion_config_documentos ALTER COLUMN tipo_documento_id SET NOT NULL;
+ALTER TABLE asociacion_config_documentos
+    ADD CONSTRAINT fk_config_docs_tipo_documento FOREIGN KEY (tipo_documento_id) REFERENCES tipos_documento(id) ON DELETE CASCADE,
+    ADD CONSTRAINT uq_config_docs_asociacion_tipo UNIQUE (asociacion_id, tipo_documento_id),
+    ADD CONSTRAINT chk_config_docs_aplica_a CHECK (aplica_a IN ('mayor', 'menor', 'ambos'));
 
 CREATE TABLE expedientes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
