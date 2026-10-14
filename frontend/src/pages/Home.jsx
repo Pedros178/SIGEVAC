@@ -158,12 +158,12 @@ export default function Home() {
             <p style={styles.heroEyebrow}>Asociación Juvenil</p>
             <h1 style={styles.heroTitulo}>Sueños de Comedia</h1>
             <p style={styles.heroLema}>
-              «Participación e iniciativa juvenil al servicio de la sociedad»
+              «PARTICIPACIÓN E INICIATIVA JUVENIL AL SERVICIO DE LA SOCIEDAD»
             </p>
             <p style={styles.heroTexto}>
               Somos una organización civil mexicana, sin fines de lucro, formada por jóvenes
               que ponen sus estudios al servicio de proyectos reales con impacto social —
-              desde Huamantla, Tlaxcala, hacia siete estados del país.
+              desde Huamantla, Tlaxcala para todos los estados de la República.
             </p>
             <div style={styles.heroBotones}>
               <Link to="/dashboard" className="sg-button-primary" style={styles.botonHero}>
@@ -223,7 +223,7 @@ export default function Home() {
         <div style={styles.articulo}>
           <h2 style={styles.tituloSeccion}>Áreas de labor</h2>
           <p style={styles.parrafo}>
-            Casi veinte frentes distintos, todos con el mismo lema: participación e iniciativa
+            Treinta frentes distintos, todos con el mismo lema…: participación e iniciativa
             juvenil al servicio de la sociedad.
           </p>
           <ul style={styles.listaAreas}>
