@@ -11,7 +11,7 @@ const FECHA_FUNDACION = new Date('2013-01-07');
 // Áreas de labor: es contenido editorial fijo (no varía por voluntario ni
 // por asociación), así que se mantiene como lista estática en vez de una
 // tabla de catálogo; aquí solo se expone el conteo para la cifra pública.
-const TOTAL_AREAS_DE_LABOR = 19;
+const TOTAL_AREAS_DE_LABOR = 30;
 
 function calcularAniosDesde(fecha) {
   const hoy = new Date();

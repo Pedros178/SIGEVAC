@@ -25,7 +25,7 @@ function mockearEndpointsPublicos({ actividades = [], fotos = [] } = {}) {
   api.get.mockImplementation((url) => {
     if (url === '/publico/actividades') return Promise.resolve({ data: { actividades } });
     if (url === '/publico/estadisticas') {
-      return Promise.resolve({ data: { anios_trabajo: 13, voluntarios_activos: 112, estados_con_presencia: 7, areas_de_labor: 19 } });
+      return Promise.resolve({ data: { anios_trabajo: 13, voluntarios_activos: 112, estados_con_presencia: 7, areas_de_labor: 30 } });
     }
     if (url === '/publico/galeria') return Promise.resolve({ data: { fotos } });
     return Promise.resolve({ data: {} });
@@ -79,7 +79,7 @@ describe('Home (página pública de la asociación)', () => {
     renderHome();
 
     expect(screen.getByRole('link', { name: /suenoscomedia@gmail.com/i })).toHaveAttribute('href', 'mailto:suenoscomedia@gmail.com');
-    expect(screen.getByRole('link', { name: /whatsapp — 247 139 7394/i })).toHaveAttribute('href', 'https://wa.me/522471397394');
+    expect(screen.getByRole('link', { name: /presidencia nacional — 247 139 7394/i })).toHaveAttribute('href', 'https://wa.me/522471397394');
   });
 
   test('las cifras públicas se piden al backend y se muestran cuando responde', async () => {
@@ -148,5 +148,24 @@ describe('Home (página pública de la asociación)', () => {
 
     await waitFor(() => expect(screen.getByText('Danza folklórica en la plaza')).toBeInTheDocument());
     expect(screen.queryByText('Foto de prueba')).not.toBeInTheDocument();
+  });
+  test('Contacto muestra los tres números oficiales de WhatsApp y ya no el número que dejó de usarse', async () => {
+    mockearEndpointsPublicos();
+    renderHome();
+    const presidencia = await screen.findByRole('link', { name: /Presidencia Nacional — 247 139 7394/ });
+    expect(presidencia).toHaveAttribute('href', 'https://wa.me/522471397394');
+    expect(screen.getByRole('link', { name: /Línea de Servicio 1 — 247 108 7558/ })).toHaveAttribute('href', 'https://wa.me/522471087558');
+    expect(screen.getByRole('link', { name: /Línea de Servicio 2 — 566 455 0335/ })).toHaveAttribute('href', 'https://wa.me/525664550335');
+    expect(screen.queryByText(/221 389 7963/)).not.toBeInTheDocument();
+  });
+
+  test('las áreas de labor son las 30 oficiales (incluye Asuntos Lingüísticos y ya no Gestión Financiera)', async () => {
+    mockearEndpointsPublicos();
+    renderHome();
+    await screen.findByText('Asuntos Lingüísticos');
+    expect(screen.getByText('Seguridad, Prevención y Protección Civil')).toBeInTheDocument();
+    expect(screen.getByText('Diseño de Moda e Imagen Integral')).toBeInTheDocument();
+    expect(screen.queryByText('Gestión Financiera')).not.toBeInTheDocument();
+    expect(screen.queryByText('Labor Social')).not.toBeInTheDocument();
   });
 });

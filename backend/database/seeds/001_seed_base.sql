@@ -146,63 +146,62 @@ INSERT INTO asociaciones (nombre, municipio, estado, correo)
 VALUES ('Asociación Juvenil "Sueños de Comedia", A.C.', 'Tehuacán', 'Puebla', 'contacto@suenosdecomedia.org')
 ON CONFLICT DO NOTHING;
 
--- Categorías y subcategorías por defecto del inventario, según las áreas
--- reales de la asociación (danza y arte/cultura). Quedan editables desde
--- la propia UI: esto solo precarga un punto de partida razonable.
+-- Inventario organizado por ÁREAS: las 30 áreas de labor oficiales de la
+-- asociación más "Control de Voluntariado". Las subáreas son opcionales; aquí
+-- solo se precargan unas pocas como punto de partida. Todo es editable desde la
+-- UI. (Ver también la migración 021, que hace lo mismo sobre bases existentes.)
 DO $$
 DECLARE
     v_asociacion_id UUID;
-    v_categoria_id UUID;
+    v_area_id UUID;
+    v_area TEXT;
+    v_areas TEXT[] := ARRAY[
+        'Administrativa', 'Administración Estratégica', 'Apoyo al Comercio y Emprendimiento',
+        'Arte y Cultura', 'Asesoría Jurídica', 'Asuntos Lingüísticos', 'Bibliotecas',
+        'Centros de Desarrollo Integral Comunitarios HUITZILIN', 'Ciencia y Tecnología',
+        'Comunicación', 'Control de Voluntariado', 'Deporte', 'Derechos Humanos',
+        'Desarrollo Rural', 'Difusión Gastronómica', 'Diseño de Moda e Imagen Integral',
+        'Diversidad Sexual', 'Educación', 'Inclusión y Participación Cívica',
+        'Programación de Servicio Social y Prácticas Profesionales', 'Promoción',
+        'Pueblos y Barrios Originarios', 'Recreación', 'Recursos Naturales y Medio Ambiente',
+        'Relaciones Públicas', 'Salud', 'Seguridad, Prevención y Protección Civil', 'Sistemas',
+        'Trabajo Social', 'Vinculación y Empleabilidad'
+    ];
 BEGIN
     SELECT id INTO v_asociacion_id FROM asociaciones
     WHERE nombre = 'Asociación Juvenil "Sueños de Comedia", A.C.' LIMIT 1;
 
     IF v_asociacion_id IS NOT NULL THEN
-        -- Vestuario (danza)
-        INSERT INTO inventario_categorias (asociacion_id, nombre)
-        VALUES (v_asociacion_id, 'Vestuario')
-        ON CONFLICT (asociacion_id, categoria_padre_id, nombre) DO NOTHING
-        RETURNING id INTO v_categoria_id;
-        IF v_categoria_id IS NULL THEN
-            SELECT id INTO v_categoria_id FROM inventario_categorias
-            WHERE asociacion_id = v_asociacion_id AND categoria_padre_id IS NULL AND nombre = 'Vestuario';
-        END IF;
+        FOREACH v_area IN ARRAY v_areas LOOP
+            INSERT INTO inventario_categorias (asociacion_id, nombre)
+            SELECT v_asociacion_id, v_area
+            WHERE NOT EXISTS (
+                SELECT 1 FROM inventario_categorias
+                WHERE asociacion_id = v_asociacion_id AND categoria_padre_id IS NULL AND nombre = v_area
+            );
+        END LOOP;
+
+        -- Subáreas de ejemplo: vestuario y escenografía (Arte y Cultura)
+        SELECT id INTO v_area_id FROM inventario_categorias
+        WHERE asociacion_id = v_asociacion_id AND categoria_padre_id IS NULL AND nombre = 'Arte y Cultura';
         INSERT INTO inventario_categorias (asociacion_id, nombre, categoria_padre_id) VALUES
-            (v_asociacion_id, 'Sombreros', v_categoria_id),
-            (v_asociacion_id, 'Vestidos y trajes', v_categoria_id),
-            (v_asociacion_id, 'Calzado', v_categoria_id),
-            (v_asociacion_id, 'Accesorios', v_categoria_id)
+            (v_asociacion_id, 'Sombreros', v_area_id),
+            (v_asociacion_id, 'Vestidos y trajes', v_area_id),
+            (v_asociacion_id, 'Calzado', v_area_id),
+            (v_asociacion_id, 'Accesorios', v_area_id),
+            (v_asociacion_id, 'Escenografía', v_area_id),
+            (v_asociacion_id, 'Utilería de teatro', v_area_id),
+            (v_asociacion_id, 'Instrumentos musicales', v_area_id),
+            (v_asociacion_id, 'Iluminación y sonido', v_area_id)
         ON CONFLICT (asociacion_id, categoria_padre_id, nombre) DO NOTHING;
 
-        -- Arte y Cultura (teatro/escenografía)
-        INSERT INTO inventario_categorias (asociacion_id, nombre)
-        VALUES (v_asociacion_id, 'Arte y Cultura')
-        ON CONFLICT (asociacion_id, categoria_padre_id, nombre) DO NOTHING
-        RETURNING id INTO v_categoria_id;
-        IF v_categoria_id IS NULL THEN
-            SELECT id INTO v_categoria_id FROM inventario_categorias
-            WHERE asociacion_id = v_asociacion_id AND categoria_padre_id IS NULL AND nombre = 'Arte y Cultura';
-        END IF;
+        -- Subáreas de ejemplo: equipo general (Administrativa)
+        SELECT id INTO v_area_id FROM inventario_categorias
+        WHERE asociacion_id = v_asociacion_id AND categoria_padre_id IS NULL AND nombre = 'Administrativa';
         INSERT INTO inventario_categorias (asociacion_id, nombre, categoria_padre_id) VALUES
-            (v_asociacion_id, 'Escenografía', v_categoria_id),
-            (v_asociacion_id, 'Utilería de teatro', v_categoria_id),
-            (v_asociacion_id, 'Instrumentos musicales', v_categoria_id),
-            (v_asociacion_id, 'Iluminación y sonido', v_categoria_id)
-        ON CONFLICT (asociacion_id, categoria_padre_id, nombre) DO NOTHING;
-
-        -- Equipo y mobiliario general
-        INSERT INTO inventario_categorias (asociacion_id, nombre)
-        VALUES (v_asociacion_id, 'Equipo y mobiliario')
-        ON CONFLICT (asociacion_id, categoria_padre_id, nombre) DO NOTHING
-        RETURNING id INTO v_categoria_id;
-        IF v_categoria_id IS NULL THEN
-            SELECT id INTO v_categoria_id FROM inventario_categorias
-            WHERE asociacion_id = v_asociacion_id AND categoria_padre_id IS NULL AND nombre = 'Equipo y mobiliario';
-        END IF;
-        INSERT INTO inventario_categorias (asociacion_id, nombre, categoria_padre_id) VALUES
-            (v_asociacion_id, 'Mobiliario', v_categoria_id),
-            (v_asociacion_id, 'Equipo de oficina', v_categoria_id),
-            (v_asociacion_id, 'Limpieza', v_categoria_id)
+            (v_asociacion_id, 'Mobiliario', v_area_id),
+            (v_asociacion_id, 'Equipo de oficina', v_area_id),
+            (v_asociacion_id, 'Limpieza', v_area_id)
         ON CONFLICT (asociacion_id, categoria_padre_id, nombre) DO NOTHING;
     END IF;
 END $$;

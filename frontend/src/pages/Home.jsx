@@ -6,12 +6,14 @@ import {
 } from '../components/IconosPublicos.jsx';
 
 const AREAS_DE_LABOR = [
-  'Arte y Cultura', 'Deporte', 'Labor Social', 'Ciencia y Tecnología', 'Educación', 'Salud',
-  'Recursos Naturales y Medio Ambiente', 'Jurídica', 'Desarrollo Rural',
-  'Apoyo al Comercio y Emprendimiento', 'Inclusión y Participación Cívica', 'Comunicación',
-  'Centros de Desarrollo Integral Comunitarios', 'Diversidad Sexual', 'Recreación',
-  'Pueblos y Barrios Originarios', 'Gestión Financiera', 'Vinculación y Empleabilidad',
-  'Difusión Gastronómica',
+  'Administrativa', 'Arte y Cultura', 'Deporte', 'Trabajo Social', 'Ciencia y Tecnología',
+  'Educación', 'Salud', 'Recursos Naturales y Medio Ambiente', 'Asesoría Jurídica',
+  'Apoyo al Comercio y Emprendimiento', 'Comunicación', 'Inclusión y Participación Cívica',
+  'Centros de Desarrollo Integral Comunitarios HUITZILIN', 'Diversidad Sexual', 'Recreación',
+  'Difusión Gastronómica', 'Programación de Servicio Social y Prácticas Profesionales', 'Sistemas',
+  'Bibliotecas', 'Pueblos y Barrios Originarios', 'Promoción', 'Seguridad, Prevención y Protección Civil',
+  'Derechos Humanos', 'Administración Estratégica', 'Relaciones Públicas', 'Vinculación y Empleabilidad',
+  'Desarrollo Rural', 'Diseño de Moda e Imagen Integral', 'Asuntos Lingüísticos',
 ];
 
 const ESTADOS_CON_PRESENCIA = ['Tlaxcala', 'Puebla', 'Estado de México', 'CDMX', 'Querétaro', 'Chiapas', 'Hidalgo'];
@@ -109,7 +111,7 @@ function useSeccionActiva(ids) {
 
 // Valores de respaldo: se muestran mientras responde /publico/estadisticas,
 // y también si la llamada falla, para que la sección nunca se vea vacía.
-const CIFRAS_RESPALDO = { anios_trabajo: 13, voluntarios_activos: 112, estados_con_presencia: 7, areas_de_labor: 19 };
+const CIFRAS_RESPALDO = { anios_trabajo: 13, voluntarios_activos: 112, estados_con_presencia: 7, areas_de_labor: 30 };
 
 export default function Home() {
   const [actividades, setActividades] = useState(null);
@@ -266,13 +268,19 @@ export default function Home() {
               <li>
                 <a href="https://wa.me/522471397394" className="sg-contact-link" style={styles.contactoEnlace} target="_blank" rel="noreferrer">
                   <span className="sg-contact-icon" style={styles.contactoIcono}><IconoWhatsApp /></span>
-                  WhatsApp — 247 139 7394
+                  Presidencia Nacional — 247 139 7394
                 </a>
               </li>
               <li>
-                <a href="https://wa.me/522213897963" className="sg-contact-link" style={styles.contactoEnlace} target="_blank" rel="noreferrer">
+                <a href="https://wa.me/522471087558" className="sg-contact-link" style={styles.contactoEnlace} target="_blank" rel="noreferrer">
                   <span className="sg-contact-icon" style={styles.contactoIcono}><IconoWhatsApp /></span>
-                  WhatsApp — 221 389 7963
+                  Línea de Servicio 1 — 247 108 7558
+                </a>
+              </li>
+              <li>
+                <a href="https://wa.me/525664550335" className="sg-contact-link" style={styles.contactoEnlace} target="_blank" rel="noreferrer">
+                  <span className="sg-contact-icon" style={styles.contactoIcono}><IconoWhatsApp /></span>
+                  Línea de Servicio 2 — 566 455 0335
                 </a>
               </li>
               <li>

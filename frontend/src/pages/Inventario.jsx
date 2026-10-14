@@ -54,7 +54,7 @@ export default function Inventario() {
       const { data } = await api.get('/inventario/categorias');
       setCategorias(data.categorias);
     } catch (err) {
-      setError(err.response?.data?.error || 'No se pudieron cargar las categorías.');
+      setError(err.response?.data?.error || 'No se pudieron cargar las áreas.');
     }
   }
 
@@ -173,7 +173,7 @@ export default function Inventario() {
         <div style={styles.encabezado}>
           <div>
             <h1 style={styles.titulo}>Inventario</h1>
-            <p style={styles.subtitulo}>Vestuario, escenografía, utilería y demás artículos de la asociación.</p>
+            <p style={styles.subtitulo}>Artículos de la asociación organizados por área.</p>
           </div>
           <div style={styles.tabs}>
             <button
@@ -197,7 +197,7 @@ export default function Inventario() {
 
         {vista === 'articulos' ? (
           <section className="sg-stat-grid" aria-label="Indicadores de artículos">
-            <TarjetaIndicador icono="📦" tema="azul" valor={articulos.length} etiqueta="Artículos en esta vista" nota={`${categorias.length} categorías`} />
+            <TarjetaIndicador icono="📦" tema="azul" valor={articulos.length} etiqueta="Artículos en esta vista" nota={`${categorias.length} áreas`} />
             <TarjetaIndicador icono="🔄" tema="cian" valor={articulos.filter((a) => a.es_prestable).length} etiqueta="Prestables" nota="Vestuario, equipo, escenografía" />
             <TarjetaIndicador icono="⚠️" tema="ambar" valor={articulos.filter((a) => a.existencias <= a.minimo).length} etiqueta="Bajo mínimo" nota="Requieren reabastecer" />
             <TarjetaIndicador icono="🔧" tema="rojo" valor={articulos.filter((a) => a.estado_fisico === 'dañado' || a.estado_fisico === 'baja').length} etiqueta="Dañados / de baja" nota="Revisar estado físico" />
@@ -246,7 +246,7 @@ export default function Inventario() {
               ))}
               {puedeGestionar && (
                 <button className="sg-button-secondary" style={{ marginTop: 12 }} onClick={() => setMostrarFormCategoria((v) => !v)}>
-                  {mostrarFormCategoria ? 'Cancelar' : '+ Nueva categoría'}
+                  {mostrarFormCategoria ? 'Cancelar' : '+ Nueva área'}
                 </button>
               )}
               {mostrarFormCategoria && (
@@ -307,7 +307,7 @@ export default function Inventario() {
                       </div>
                       <strong style={{ fontSize: 14 }}>{a.nombre}</strong>
                       <span style={{ fontSize: 12, color: 'var(--sg-ink-soft)' }}>
-                        {[a.categoria_nombre, a.subcategoria_nombre].filter(Boolean).join(' · ') || 'Sin categoría'}
+                        {[a.categoria_nombre, a.subcategoria_nombre].filter(Boolean).join(' · ') || 'Sin área'}
                       </span>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         <span className={`sg-badge ${a.existencias <= a.minimo ? 'sg-badge-warning' : 'sg-badge-success'}`}>
@@ -360,16 +360,16 @@ function FormCategoria({ categorias, onCreada, onError }) {
       setPadreId('');
       onCreada();
     } catch (err) {
-      onError(err.response?.data?.error || 'No se pudo crear la categoría.');
+      onError(err.response?.data?.error || 'No se pudo crear el área.');
     }
   }
 
   return (
     <form onSubmit={crear} style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
-      <input className="sg-input" placeholder="Nombre de la categoría o subcategoría" value={nombre} onChange={(e) => setNombre(e.target.value)} required />
+      <input className="sg-input" placeholder="Nombre del área o subárea" value={nombre} onChange={(e) => setNombre(e.target.value)} required />
       <select className="sg-input" value={padreId} onChange={(e) => setPadreId(e.target.value)}>
         <option value="">— Es un área de primer nivel —</option>
-        {categorias.map((c) => (<option key={c.id} value={c.id}>Subcategoría de: {c.nombre}</option>))}
+        {categorias.map((c) => (<option key={c.id} value={c.id}>Subárea de: {c.nombre}</option>))}
       </select>
       <button className="sg-button-primary" style={{ width: 'auto' }}>Guardar</button>
     </form>
@@ -397,8 +397,8 @@ function FormArticulo({ categorias, onCreado, onError }) {
   return (
     <form onSubmit={crear} style={styles.formArticulo}>
       <CampoArticulo etiqueta="Nombre del artículo" requerido><input className="sg-input" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} required /></CampoArticulo>
-      <CampoArticulo etiqueta="Categoría (área)"><select className="sg-input" value={form.categoria_id} onChange={(e) => setForm({ ...form, categoria_id: e.target.value, subcategoria_id: '' })}><option value="">Selecciona un área</option>{categorias.map((c) => (<option key={c.id} value={c.id}>{c.nombre}</option>))}</select></CampoArticulo>
-      <CampoArticulo etiqueta="Subcategoría"><select className="sg-input" value={form.subcategoria_id} onChange={(e) => setForm({ ...form, subcategoria_id: e.target.value })} disabled={!categoriaSeleccionada?.subcategorias?.length}><option value="">Sin subcategoría</option>{categoriaSeleccionada?.subcategorias?.map((s) => (<option key={s.id} value={s.id}>{s.nombre}</option>))}</select></CampoArticulo>
+      <CampoArticulo etiqueta="Área"><select className="sg-input" value={form.categoria_id} onChange={(e) => setForm({ ...form, categoria_id: e.target.value, subcategoria_id: '' })}><option value="">Selecciona un área</option>{categorias.map((c) => (<option key={c.id} value={c.id}>{c.nombre}</option>))}</select></CampoArticulo>
+      <CampoArticulo etiqueta="Subárea"><select className="sg-input" value={form.subcategoria_id} onChange={(e) => setForm({ ...form, subcategoria_id: e.target.value })} disabled={!categoriaSeleccionada?.subcategorias?.length}><option value="">Sin subárea</option>{categoriaSeleccionada?.subcategorias?.map((s) => (<option key={s.id} value={s.id}>{s.nombre}</option>))}</select></CampoArticulo>
       <CampoArticulo etiqueta="Unidad"><select className="sg-input" value={form.unidad} onChange={(e) => setForm({ ...form, unidad: e.target.value })}>{UNIDADES_INVENTARIO.map((unidad) => <option key={unidad} value={unidad}>{unidad}</option>)}</select></CampoArticulo>
       <CampoArticulo etiqueta="Mínimo deseado" ayuda="Alerta si las existencias bajan a este número"><input className="sg-input" type="number" min="0" value={form.minimo} onChange={(e) => setForm({ ...form, minimo: Number(e.target.value) })} /></CampoArticulo>
       <CampoArticulo etiqueta="Ubicación" ayuda="bodega, estante..."><input className="sg-input" value={form.ubicacion} onChange={(e) => setForm({ ...form, ubicacion: e.target.value })} /></CampoArticulo>
@@ -508,7 +508,7 @@ function DetalleArticulo({ articulo, puedeGestionar, onCerrar, onCambio, onError
           <div>
             <h2 style={{ fontSize: 20, marginBottom: 2 }}>{articulo.nombre}</h2>
             <span style={{ fontSize: 12.5, color: 'var(--sg-ink-soft)' }}>
-              {[articulo.categoria_nombre, articulo.subcategoria_nombre].filter(Boolean).join(' · ') || 'Sin categoría'}
+              {[articulo.categoria_nombre, articulo.subcategoria_nombre].filter(Boolean).join(' · ') || 'Sin área'}
             </span>
           </div>
           <button className="sg-button-secondary" style={{ width: 'auto' }} onClick={onCerrar}>Cerrar</button>

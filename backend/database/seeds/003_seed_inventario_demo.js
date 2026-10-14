@@ -7,8 +7,7 @@
  * expedientes, actividades y horas de servicio. Este script llena los
  * módulos que ninguno de los dos anteriores toca:
  *
- *  - Inventario: categorías/subcategorías (Vestuario, Arte y Cultura,
- *    Insumos), artículos con estado físico y ubicación variados,
+ *  - Inventario: áreas/subáreas (Arte y Cultura, Administrativa), artículos con estado físico y ubicación variados,
  *    movimientos de entrada/salida (incluyendo uno que deja un artículo
  *    por debajo de su mínimo), préstamos (uno vigente, uno atrasado, uno
  *    ya devuelto) y mantenimientos con costo.
@@ -133,27 +132,26 @@ async function main() {
   // ============================================================
   // 1) INVENTARIO
   // ============================================================
-  const catVestuario = await obtenerOCrearCategoria({ asociacionId: asociacion1.id, nombre: 'Vestuario' });
-  const subSombreros = await obtenerOCrearCategoria({ asociacionId: asociacion1.id, nombre: 'Sombreros', categoriaPadreId: catVestuario.id });
-  const subTrajes = await obtenerOCrearCategoria({ asociacionId: asociacion1.id, nombre: 'Trajes', categoriaPadreId: catVestuario.id });
-
+  // Inventario por áreas: el vestuario cuelga del área "Arte y Cultura".
   const catArte = await obtenerOCrearCategoria({ asociacionId: asociacion1.id, nombre: 'Arte y Cultura' });
+  const subSombreros = await obtenerOCrearCategoria({ asociacionId: asociacion1.id, nombre: 'Sombreros', categoriaPadreId: catArte.id });
+  const subTrajes = await obtenerOCrearCategoria({ asociacionId: asociacion1.id, nombre: 'Trajes', categoriaPadreId: catArte.id });
   const subEscenografia = await obtenerOCrearCategoria({ asociacionId: asociacion1.id, nombre: 'Escenografía', categoriaPadreId: catArte.id });
   const subUtileria = await obtenerOCrearCategoria({ asociacionId: asociacion1.id, nombre: 'Utilería', categoriaPadreId: catArte.id });
 
-  const catInsumos = await obtenerOCrearCategoria({ asociacionId: asociacion1.id, nombre: 'Insumos' });
-  const subConsumibles = await obtenerOCrearCategoria({ asociacionId: asociacion1.id, nombre: 'Consumibles', categoriaPadreId: catInsumos.id });
+  const catAdministrativa = await obtenerOCrearCategoria({ asociacionId: asociacion1.id, nombre: 'Administrativa' });
+  const subConsumibles = await obtenerOCrearCategoria({ asociacionId: asociacion1.id, nombre: 'Consumibles', categoriaPadreId: catAdministrativa.id });
 
-  console.log('✅ Categorías de inventario: Vestuario (Sombreros, Trajes), Arte y Cultura (Escenografía, Utilería), Insumos (Consumibles)');
+  console.log('✅ Áreas de inventario: Arte y Cultura (Sombreros, Trajes, Escenografía, Utilería), Administrativa (Consumibles)');
 
   const { articulo: sombrerosCopa, esNuevo: nSombreros } = await obtenerOCrearArticulo({
     asociacionId: asociacion1.id, nombre: 'Sombreros de copa', descripcion: 'Set de sombreros de copa para números musicales.',
-    unidad: 'pieza', minimo: 5, categoriaId: catVestuario.id, subcategoriaId: subSombreros.id,
+    unidad: 'pieza', minimo: 5, categoriaId: catArte.id, subcategoriaId: subSombreros.id,
     estadoFisico: 'bueno', ubicacion: 'Bodega A - Estante 2', esPrestable: true,
   });
   const { articulo: trajeArlequin, esNuevo: nArlequin } = await obtenerOCrearArticulo({
     asociacionId: asociacion1.id, nombre: 'Traje de arlequín', descripcion: 'Traje completo de arlequín, talla M.',
-    unidad: 'pieza', minimo: 2, categoriaId: catVestuario.id, subcategoriaId: subTrajes.id,
+    unidad: 'pieza', minimo: 2, categoriaId: catArte.id, subcategoriaId: subTrajes.id,
     estadoFisico: 'regular', ubicacion: 'Bodega A - Percha 5', esPrestable: true,
   });
   const { articulo: telonFondo, esNuevo: nTelon } = await obtenerOCrearArticulo({
@@ -168,7 +166,7 @@ async function main() {
   });
   const { articulo: maquillajeTeatral, esNuevo: nMaquillaje } = await obtenerOCrearArticulo({
     asociacionId: asociacion1.id, nombre: 'Maquillaje teatral (kit)', descripcion: 'Kits de maquillaje para caracterización.',
-    unidad: 'kit', minimo: 3, categoriaId: catInsumos.id, subcategoriaId: subConsumibles.id,
+    unidad: 'kit', minimo: 3, categoriaId: catAdministrativa.id, subcategoriaId: subConsumibles.id,
     estadoFisico: 'bueno', ubicacion: 'Oficina - Cajón 1', esPrestable: false,
   });
   const { articulo: sillasPlegables, esNuevo: nSillas } = await obtenerOCrearArticulo({
@@ -181,7 +179,7 @@ async function main() {
   // Segunda asociación: un par de artículos propios, para probar que el
   // aislamiento por asociación también se ve bien en la UI (cada una ve
   // solo lo suyo).
-  const catManos = await obtenerOCrearCategoria({ asociacionId: asociacion2.id, nombre: 'Insumos' });
+  const catManos = await obtenerOCrearCategoria({ asociacionId: asociacion2.id, nombre: 'Administrativa' });
   await obtenerOCrearArticulo({
     asociacionId: asociacion2.id, nombre: 'Despensas básicas', descripcion: 'Paquetes de despensa para jornadas de apoyo.',
     unidad: 'paquete', minimo: 10, categoriaId: catManos.id, estadoFisico: 'bueno', ubicacion: 'Bodega principal', esPrestable: false,
