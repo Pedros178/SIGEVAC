@@ -1,9 +1,11 @@
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { execFile } = require('child_process');
 const RespaldoModel = require('../models/respaldoModel');
 const { almacenamientoRemoto, guardarArchivo, obtenerArchivo, eliminarArchivo, esReferenciaRemota } = require('../config/storage');
 const { contentDisposition } = require('../utils/contentDisposition');
+const { cifrarArchivo } = require('../utils/cifradoArchivos');
 
 const DIRECTORIO_RESPALDOS = path.join(__dirname, '..', '..', 'backups');
 if (!fs.existsSync(DIRECTORIO_RESPALDOS)) fs.mkdirSync(DIRECTORIO_RESPALDOS, { recursive: true });
@@ -65,17 +67,25 @@ const RespaldoController = {
    */
   async generar(req, res, next) {
     try {
-      const nombreArchivo = `sigevac_${new Date().toISOString().replace(/[:.]/g, '-')}.sql`;
+      // El volcado en claro vive solo en un directorio temporal privado (0700) y se borra siempre;
+      // lo que se guarda (disco o Supabase) es el archivo CIFRADO (.sql.enc, AES-256-GCM).
+      const nombreArchivo = `sigevac_${new Date().toISOString().replace(/[:.]/g, '-')}.sql.enc`;
       const rutaCompleta = path.join(DIRECTORIO_RESPALDOS, nombreArchivo);
-
-      await ejecutarPgDump(rutaCompleta);
-
-      const { size } = fs.statSync(rutaCompleta);
+      const carpetaTemporal = fs.mkdtempSync(path.join(os.tmpdir(), 'sigevac-dump-'));
+      const volcado = path.join(carpetaTemporal, 'volcado.sql');
+      let size;
+      try {
+        await ejecutarPgDump(volcado);
+        await cifrarArchivo(volcado, rutaCompleta);
+        ({ size } = fs.statSync(rutaCompleta));
+      } finally {
+        fs.rmSync(carpetaTemporal, { recursive: true, force: true });
+      }
       let archivoUrl = `/backups/${nombreArchivo}`;
       if (almacenamientoRemoto) {
         // En plataformas con disco efímero (Render) el archivo local se perdería
         // en el próximo reinicio: se sube a almacenamiento persistente.
-        archivoUrl = await guardarArchivo({ rutaLocal: rutaCompleta, ruta: `respaldos/${nombreArchivo}`, contentType: 'application/sql' });
+        archivoUrl = await guardarArchivo({ rutaLocal: rutaCompleta, ruta: `respaldos/${nombreArchivo}`, contentType: 'application/octet-stream' });
         fs.unlinkSync(rutaCompleta);
       }
       const respaldo = await RespaldoModel.crear({
@@ -114,7 +124,7 @@ const RespaldoController = {
       const nombreArchivo = path.basename(respaldo.archivo_url);
       if (esReferenciaRemota(respaldo.archivo_url)) {
         const contenido = await obtenerArchivo(respaldo.archivo_url);
-        res.set({ 'Content-Type': 'application/sql', 'Content-Disposition': contentDisposition('attachment', nombreArchivo) });
+        res.set({ 'Content-Type': 'application/octet-stream', 'Content-Disposition': contentDisposition('attachment', nombreArchivo) });
         return res.send(contenido);
       }
       const rutaCompleta = path.join(DIRECTORIO_RESPALDOS, nombreArchivo);

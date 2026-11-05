@@ -30,6 +30,7 @@ export default defineConfig({
         // cuándo se consideran válidos, en vez de dejar que un cache HTTP
         // genérico sirva respuestas desactualizadas sin que la app lo sepa.
         globPatterns: ['**/*.{js,css,html,png,jpg,jpeg,svg}'],
+        globIgnores: ['vendor/**'], // librerías de escaneo: se descargan solo cuando alguien usa el escáner
         navigateFallbackDenylist: [/^\/api\//],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
       },

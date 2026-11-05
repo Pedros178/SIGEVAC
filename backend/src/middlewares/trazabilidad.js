@@ -5,7 +5,12 @@ const METODOS_MUTAN = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 // Cualquier clave cuyo nombre sugiera un secreto se oculta (contraseñas,
 // tokens, códigos 2FA, secretos TOTP, desafíos). Se evalúa por patrón en
 // vez de una lista fija para no volver a dejar pasar campos nuevos.
-const PATRON_SENSIBLE = /pass|token|secre|codigo|desafio|clave|hash|authorization|cookie/i;
+//
+// Además de secretos, se ocultan los datos personales sensibles (salud, identificación, domicilio,
+// teléfonos, contacto de emergencia): la auditoría debe decir QUIÉN cambió QUÉ CAMPO, pero no puede
+// convertirse en una segunda copia en claro de justo lo que se cifra en `voluntarios` — un respaldo o
+// una consulta a esa tabla expondría todo y el cifrado de los campos no serviría de nada.
+const PATRON_SENSIBLE = /pass|token|secre|codigo|desafio|clave|hash|authorization|cookie|sangre|alergia|discapacid|enfermedad|salud|curp|^ine$|ine_?tutor|domicilio|direccion|colonia|telefono|celular|nacimiento|emergencia/i;
 const CAMPOS_SENSIBLES = { has: (clave) => PATRON_SENSIBLE.test(clave) };
 
 const MAX_LONGITUD_TEXTO = 300;   // un texto más largo (p. ej. una imagen base64) se recorta

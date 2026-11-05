@@ -1,4 +1,5 @@
 const { app, request, loginComoAdmin } = require('./helpers');
+const { query } = require('../../src/config/database');
 
 describe('Inventario', () => {
   let token;
@@ -301,15 +302,28 @@ describe('Solicitudes de voluntariado (formulario público)', () => {
   test('cualquier persona (sin sesión) puede enviar una solicitud', async () => {
     const respuesta = await request(app)
       .post('/api/solicitudes')
-      .send({ asociacion_id: asociacionId, nombre: 'Aspirante Voluntario', correo: `aspirante.${Date.now()}@ejemplo.com`, mensaje: 'Quiero ayudar' });
+      .send({ asociacion_id: asociacionId, nombre: 'Aspirante Voluntario', correo: `aspirante.${Date.now()}@ejemplo.com`, mensaje: 'Quiero ayudar', acepta_aviso_privacidad: true });
     expect(respuesta.status).toBe(201);
     expect(respuesta.body.solicitud.estado).toBe('pendiente');
+    expect(respuesta.body.solicitud.version_aviso).toBeTruthy();
+    expect(respuesta.body.solicitud.aviso_aceptado_en).toBeTruthy();
     solicitudId = respuesta.body.solicitud.id;
   });
 
   test('enviar una solicitud sin correo responde 400', async () => {
-    const respuesta = await request(app).post('/api/solicitudes').send({ asociacion_id: asociacionId, nombre: 'Sin correo' });
+    const respuesta = await request(app).post('/api/solicitudes').send({ asociacion_id: asociacionId, nombre: 'Sin correo', acepta_aviso_privacidad: true });
     expect(respuesta.status).toBe(400);
+  });
+
+  test('sin aceptar el aviso de privacidad no se recaban datos (400) y no se guarda nada', async () => {
+    const correo = `sinaviso.${Date.now()}@ejemplo.com`;
+    for (const extra of [{}, { acepta_aviso_privacidad: false }, { acepta_aviso_privacidad: 'true' }]) {
+      const respuesta = await request(app).post('/api/solicitudes').send({ asociacion_id: asociacionId, nombre: 'Sin aviso', correo, ...extra });
+      expect(respuesta.status).toBe(400);
+      expect(respuesta.body.code).toBe('AVISO_PRIVACIDAD_REQUERIDO');
+    }
+    const { rows } = await query('SELECT 1 FROM solicitudes_voluntariado WHERE correo = $1', [correo]);
+    expect(rows).toHaveLength(0);
   });
 
   test('listar solicitudes requiere ser super_admin', async () => {

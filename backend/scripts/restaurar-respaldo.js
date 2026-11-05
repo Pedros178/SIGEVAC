@@ -14,10 +14,16 @@
  *    (ON_ERROR_STOP): o se restaura completo, o no se toca nada.
  *  - La contraseña viaja por variable de entorno (PGPASSWORD), no por argumentos.
  *  - Requiere el cliente `psql` instalado.
+ *  - Los respaldos generados por la app son archivos CIFRADOS (.sql.enc): el script los descifra
+ *    en un directorio temporal privado (se borra al terminar) usando DATA_ENC_KEY del entorno/.env.
  */
 const { execFileSync } = require('child_process');
 const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const { Client } = require('pg');
+require('dotenv').config();
+const { descifrarArchivo, esArchivoCifrado } = require('../src/utils/cifradoArchivos');
 
 function variablesPg(url) {
   const u = new URL(url);
@@ -48,15 +54,31 @@ async function main() {
   }
 
   console.log(`Restaurando ${archivo} en la base "${nombre[0].bd}"...`);
+  let carpetaTemporal = null;
+  let archivoSql = archivo;
+  if (esArchivoCifrado(archivo)) {
+    carpetaTemporal = fs.mkdtempSync(path.join(os.tmpdir(), 'sigevac-restore-'));
+    archivoSql = path.join(carpetaTemporal, 'respaldo.sql');
+    try {
+      await descifrarArchivo(archivo, archivoSql);
+    } catch (err) {
+      fs.rmSync(carpetaTemporal, { recursive: true, force: true });
+      console.error(`❌ ${err.message}`);
+      process.exit(4);
+    }
+  }
   try {
-    execFileSync('psql', ['-v', 'ON_ERROR_STOP=1', '--single-transaction', '-q', '-f', archivo], {
+    execFileSync('psql', ['-v', 'ON_ERROR_STOP=1', '--single-transaction', '-q', '-f', archivoSql], {
       env: { ...process.env, ...variablesPg(destino) }, stdio: ['ignore', 'ignore', 'inherit'],
     });
   } catch (err) {
+    // process.exit no ejecuta `finally`: el volcado descifrado se borra ANTES de salir.
+    if (carpetaTemporal) fs.rmSync(carpetaTemporal, { recursive: true, force: true });
     if (err.code === 'ENOENT') console.error('❌ No se encontró `psql`. Instala el cliente de PostgreSQL.');
     else console.error('❌ La restauración falló y se revirtió por completo (no quedó nada a medias).');
     process.exit(1);
   }
+  if (carpetaTemporal) fs.rmSync(carpetaTemporal, { recursive: true, force: true });
   console.log('✅ Restauración completada. Verifica con: npm run db:verify-restore -- <URL_ORIGEN> <URL_RESTAURADA>');
 }
 

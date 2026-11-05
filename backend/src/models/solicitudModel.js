@@ -1,7 +1,7 @@
 const { query } = require('../config/database');
 const SolicitudModel = {
-  async crear({ asociacionId, nombre, correo, telefono, mensaje }) {
-    const { rows } = await query(`INSERT INTO solicitudes_voluntariado (asociacion_id,nombre,correo,telefono,mensaje) VALUES ($1,$2,$3,$4,$5) RETURNING *`, [asociacionId, nombre, correo.toLowerCase().trim(), telefono || null, mensaje || null]);
+  async crear({ asociacionId, nombre, correo, telefono, mensaje, versionAviso }) {
+    const { rows } = await query(`INSERT INTO solicitudes_voluntariado (asociacion_id,nombre,correo,telefono,mensaje,version_aviso,aviso_aceptado_en) VALUES ($1,$2,$3,$4,$5,$6,now()) RETURNING *`, [asociacionId, nombre, correo.toLowerCase().trim(), telefono || null, mensaje || null, versionAviso || null]);
     return rows[0];
   },
   async listar(asociacionId, estado) {

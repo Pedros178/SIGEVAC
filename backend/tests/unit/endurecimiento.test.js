@@ -11,6 +11,8 @@ const ENV_BUENO = {
   JWT_REFRESH_SECRET: 'Q7wE2rT9yU1iO4pA6sD8fG0hJ3kL5zX7cV9bN2mQ4wE6rT8y',
   FRONTEND_URL: 'https://app.example.org', SUPABASE_URL: 'https://x.supabase.co',
   SUPABASE_SERVICE_ROLE_KEY: 'k', SUPABASE_STORAGE_BUCKET: 'b',
+  DATA_ENC_KEY: 'b9f4c1e07a2d85f36c0e91d4a7b3825e6f10c9d8e7a4b2315c6d0f9e8a7b6c5d',
+  TWO_FACTOR_ENC_KEY: '1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f7081',
 };
 
 describe('A-04 validarEntornoProduccion', () => {
@@ -84,6 +86,20 @@ describe('M-08 sanitizado de la auditoría', () => {
     expect(JSON.stringify(r)).not.toMatch(/"x"|123456|abc/);
     expect(r.nombre).toBe('Ana');
     expect(r.tutor.nombre).toBe('T');
+  });
+  test('oculta datos personales sensibles (salud, CURP, domicilio, teléfonos, emergencia) pero conserva qué campos cambiaron', () => {
+    const r = sanitizarBody({
+      nombre: 'Ana', correo: 'ana@example.com', tipoSangre: 'O+', alergias: 'Penicilina', enfermedadCronica: 'Asma', discapacidad: 'Visual',
+      curp: 'AAAA000101HPLXXX09', telefono: '2381234567', telefonoCelular: '2389999999', direccion: 'Calle 1', colonia: 'Centro',
+      fechaNacimiento: '1990-01-01', contactoEmergenciaNombre: 'Madre', contactoEmergenciaTelefono: '111',
+      tutor: { nombre: 'Tutor', ine: '1234567890123', curp: 'BBBB000101HPLYYY09', parentesco: 'madre' },
+    });
+    const texto = JSON.stringify(r);
+    expect(texto).not.toMatch(/Penicilina|Asma|Visual|AAAA000101|2381234567|2389999999|Calle 1|Centro|1990-01-01|Madre|1234567890123|BBBB000101|O\+/);
+    expect(r.alergias).toBe('[oculto]'); // la clave sigue, así que se sabe que se tocó ese campo
+    expect(r.tutor.ine).toBe('[oculto]');
+    expect(r).toMatchObject({ nombre: 'Ana', correo: 'ana@example.com' });
+    expect(r.tutor).toMatchObject({ nombre: 'Tutor', parentesco: 'madre' });
   });
   test('recorta textos enormes (firmas base64) y arreglos largos', () => {
     const r = sanitizarBody({ imagenPngBase64: `data:image/png;base64,${'A'.repeat(500000)}`, ids: Array.from({ length: 500 }, (_, i) => i) });

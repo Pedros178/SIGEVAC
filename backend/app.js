@@ -9,6 +9,7 @@ const apiRoutes = require('./src/routes');
 const { errorHandler, notFoundHandler } = require('./src/middlewares/errorHandler');
 const { registrarTrazabilidad } = require('./src/middlewares/trazabilidad');
 const { validarEntornoProduccion } = require('./src/utils/validarEntorno');
+const { limitadorGeneral } = require('./src/middlewares/limitadores');
 
 // La validación de abajo se dispara con NODE_ENV=production (como pide
 // DEPLOY.md) pero TAMBIÉN si detecta que corre dentro de Render
@@ -51,7 +52,8 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json({ limit: '2mb' }));
-app.use(express.urlencoded({ extended: true }));
+// extended:false → analizador simple (querystring): evita las estructuras anidadas/objetos de `qs`, que la API no usa.
+app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(registrarTrazabilidad); // Módulos 18 y 21: auditoría y bitácora (no bloquea la respuesta)
 
@@ -59,6 +61,7 @@ if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('dev'));
 }
 
+app.use('/api', limitadorGeneral());
 app.use('/api', apiRoutes);
 
 app.use(notFoundHandler);

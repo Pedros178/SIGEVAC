@@ -224,7 +224,7 @@ trivial, o si faltan las variables de Supabase.
 | Variable | Obligatoria en producción | Para qué sirve |
 |---|---|---|
 | `DATABASE_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `FRONTEND_URL`, `SUPABASE_*` | Sí | Núcleo del sistema |
-| `TWO_FACTOR_ENC_KEY` | Recomendada | Llave que cifra los secretos 2FA en la BD (si falta se deriva de `JWT_SECRET`; rotar éste sin fijar la llave invalidaría los 2FA existentes) |
+| `DATA_ENC_KEY`, `TWO_FACTOR_ENC_KEY` | **Sí en producción** | Llaves de cifrado en reposo (datos de salud, respaldos / secretos 2FA). Distintas entre sí y de los JWT, ≥32 caracteres. **Guárdalas en un gestor de contraseñas: sin ellas esos datos no se recuperan.** Ver `SEGURIDAD_Y_PRIVACIDAD.md` |
 | `BITACORA_RETENCION_DIAS` | No (365) | La bitácora se purga a diario (03:00); mínimo 30 días |
 | `RESPALDOS_MAXIMO` | No (10) | Respaldos conservados; los más antiguos se eliminan |
 | `ENABLE_API_DOCS` | No (`false`) | Publica Swagger (`/api/docs`) también en producción |

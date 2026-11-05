@@ -31,6 +31,22 @@ function validarEntornoProduccion(env = process.env) {
   if (env.JWT_SECRET && env.JWT_SECRET === env.JWT_REFRESH_SECRET) {
     problemas.push('JWT_SECRET y JWT_REFRESH_SECRET deben ser distintos.');
   }
+  // Llaves de cifrado de datos en reposo: dedicadas y distintas de los secretos JWT. Si faltaran,
+  // el código las derivaría de JWT_SECRET, y rotar ese secreto dejaría datos/2FA/respaldos ilegibles.
+  const llaves = ['DATA_ENC_KEY', 'TWO_FACTOR_ENC_KEY'];
+  for (const nombre of llaves) {
+    const valor = env[nombre];
+    if (!valor) {
+      problemas.push(`Falta ${nombre} (llave de cifrado en reposo). Genera una con: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`);
+      continue;
+    }
+    if (valor.length < LONGITUD_MINIMA_SECRETO) problemas.push(`${nombre} es demasiado corta (mínimo ${LONGITUD_MINIMA_SECRETO} caracteres).`);
+    if (FRAGMENTOS_SECRETO_INSEGURO.some((f) => valor.toLowerCase().includes(f))) problemas.push(`${nombre} parece un valor de ejemplo/desarrollo.`);
+    if (valor === env.JWT_SECRET || valor === env.JWT_REFRESH_SECRET) problemas.push(`${nombre} no puede ser igual a un secreto JWT.`);
+  }
+  if (env.DATA_ENC_KEY && env.DATA_ENC_KEY === env.TWO_FACTOR_ENC_KEY) {
+    problemas.push('DATA_ENC_KEY y TWO_FACTOR_ENC_KEY deben ser distintas.');
+  }
   if (env.DATABASE_URL && /:(admin123|postgres|password|123456)@/i.test(env.DATABASE_URL)) {
     problemas.push('DATABASE_URL usa una contraseña de base de datos trivial/de ejemplo.');
   }

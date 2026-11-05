@@ -45,7 +45,8 @@ export function cargarOpenCV() {
 
 export function cargarTesseract() {
   return cargarScript(
-    'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js',
+    // Copia local con versión exacta (ver public/vendor/tesseract-5.1.1/LEEME.txt): no depende de un CDN ni de una versión flotante.
+    '/vendor/tesseract-5.1.1/tesseract.min.js',
     () => typeof window.Tesseract !== 'undefined'
   );
 }
