@@ -21,7 +21,7 @@
 1. **Genera y guarda** las llaves (gestor de contraseñas; sin ellas los datos cifrados NO se recuperan):
    `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` (dos veces, valores distintos).
    Si ya había usuarios con 2FA y no tenías `TWO_FACTOR_ENC_KEY`, sus secretos se cifraron con una llave derivada de
-   `JWT_SECRET`: NO hace falta que reactiven nada, el paso 6 los migra a la llave nueva.
+   `JWT_SECRET`: NO hace falta que reactiven nada, el paso 7 los migra a la llave nueva.
 2. Configura `DATA_ENC_KEY` y `TWO_FACTOR_ENC_KEY` en Render → Environment.
 3. **Respaldo previo** de la base.
 4. `npm run db:setup` (aplica migraciones 022 y 023).
