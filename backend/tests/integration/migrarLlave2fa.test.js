@@ -23,10 +23,19 @@ describe('Migración de la llave 2FA (sin que nadie reactive su 2FA)', () => {
   }
   const leer = async (id) => (await query('SELECT two_factor_secret FROM usuarios WHERE id = $1', [id])).rows[0].two_factor_secret;
 
+  // La migración recorre TODOS los usuarios con 2FA. Otras suites (p. ej. seguridadCriticos) dejan usuarios con
+  // secretos cifrados con otra llave; para que esta prueba no dependa del orden en que Jest corre los archivos,
+  // se apartan esos secretos mientras corre cada prueba y se restauran al terminar.
+  let apartados = [];
   beforeAll(() => { anteriorEnv = process.env.TWO_FACTOR_ENC_KEY; });
+  beforeEach(async () => {
+    apartados = (await query('SELECT id, two_factor_secret FROM usuarios WHERE two_factor_secret IS NOT NULL')).rows;
+    await query('UPDATE usuarios SET two_factor_secret = NULL WHERE two_factor_secret IS NOT NULL');
+  });
   afterEach(async () => {
     if (ids.length) await query('DELETE FROM usuarios WHERE id = ANY($1)', [ids]);
     ids = [];
+    for (const a of apartados) await query('UPDATE usuarios SET two_factor_secret = $2 WHERE id = $1', [a.id, a.two_factor_secret]);
     if (anteriorEnv === undefined) delete process.env.TWO_FACTOR_ENC_KEY; else process.env.TWO_FACTOR_ENC_KEY = anteriorEnv;
   });
 
