@@ -10,7 +10,7 @@ import api from '../services/api';
  */
 export default function SolicitudVoluntariado() {
   const [asociaciones, setAsociaciones] = useState(null);
-  const [form, setForm] = useState({ asociacion_id: '', nombre: '', correo: '', telefono: '', mensaje: '' });
+  const [form, setForm] = useState({ asociacion_id: '', nombre: '', correo: '', telefono: '', mensaje: '', acepta_aviso_privacidad: false });
   const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(false);
   const [error, setError] = useState('');
@@ -111,9 +111,23 @@ export default function SolicitudVoluntariado() {
               />
             </label>
 
+            <label style={{ ...estilos.etiqueta, flexDirection: 'row', alignItems: 'flex-start', gap: 8, fontWeight: 400 }}>
+              <input
+                type="checkbox"
+                checked={form.acepta_aviso_privacidad}
+                onChange={(e) => actualizar('acepta_aviso_privacidad', e.target.checked)}
+                required
+                style={{ marginTop: 3 }}
+              />
+              <span>
+                He leído y acepto el{' '}
+                <Link to="/aviso-privacidad" target="_blank" rel="noopener">aviso de privacidad</Link>.
+              </span>
+            </label>
+
             {error && <div style={estilos.error}>{error}</div>}
 
-            <button type="submit" className="sg-button-primary" disabled={enviando || !form.asociacion_id}>
+            <button type="submit" className="sg-button-primary" disabled={enviando || !form.asociacion_id || !form.acepta_aviso_privacidad}>
               {enviando ? 'Enviando…' : 'Enviar solicitud'}
             </button>
           </form>

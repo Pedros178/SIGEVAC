@@ -51,7 +51,7 @@ sigevac/
 │   ├── database/
 │   │   ├── schema.sql          # Esquema completo (46 tablas, todos los módulos)
 │   │   ├── setup.js            # Aplica el esquema y todas las migraciones a la BD
-│   │   ├── migrations/         # 001..017, incluye gamificación, geolocalización, inventario avanzado, galería e índices
+│   │   ├── migrations/         # 001..023, incluye gamificación, geolocalización, inventario avanzado, galería e índices
 │   │   └── seeds/
 │   │       ├── 001_seed_base.sql
 │   │       └── run.js          # Aplica seeds + crea usuario super_admin
@@ -62,7 +62,7 @@ sigevac/
 │   │   ├── models/             # capa de acceso a datos (SQL parametrizado)
 │   │   ├── routes/
 │   │   └── utils/              # jwt.js, password.js, cookies.js
-│   ├── tests/                  # unit/ + integration/, 28 suites contra PostgreSQL real
+│   ├── tests/                  # unit/ + integration/, 40+ suites contra PostgreSQL real
 │   ├── server.js
 │   └── package.json
 └── frontend/
@@ -131,12 +131,12 @@ createdb sigevac_jest
 cd backend
 cp .env.test.example .env.test   # ya apunta a sigevac_jest por defecto
 npm run lint
-npm test                          # 28 suites / 244 pruebas contra PostgreSQL real
+npm test                          # suites unitarias + de integración contra PostgreSQL real (ver CI)
 
 # Frontend
 cd ../frontend
 npm run lint
-npm test                          # 10 suites / 56 pruebas
+npm test                          # suites del frontend (vitest)
 npm run build                     # confirma que compila para producción
 ```
 
@@ -396,7 +396,7 @@ Ambas integraciones ya usaban APIs reales (Meta Cloud API y Nominatim/OpenStreet
 
 Ambas quedan configurables por variables de entorno (plantilla e idioma de WhatsApp, código de país, User-Agent y proveedor de geocodificación), documentadas en `backend/.env.example` y en [DEPLOY.md](./DEPLOY.md).
 
-Verificado con la suite completa: **244/244 pruebas backend, 56/56 pruebas frontend**, lint sin errores en ambos proyectos, build de producción del frontend limpio.
+Verificado con la suite completa de esa fase: **244/244 pruebas backend, 56/56 pruebas frontend**, lint sin errores en ambos proyectos, build de producción del frontend limpio.
 
 
 ## Pruebas
@@ -408,3 +408,10 @@ Verificado con la suite completa: **244/244 pruebas backend, 56/56 pruebas front
 | Navegador real (extremo a extremo) | `cd e2e && npm install && npm test` (ver cabecera de `e2e/run.js`) |
 | Despliegue publicado (HTTPS, CORS, cookies, archivos expuestos) | `cd backend && npm run smoke` |
 | Restauración de respaldos | `npm run db:restore` / `npm run db:verify-restore` (ver `OPERACION.md`) |
+
+
+## Fase 13 — Seguridad, protección de datos y privacidad
+
+Cifrado de datos de salud en reposo, respaldos cifrados, derechos ARCO, consentimientos, anonimización,
+auditoría sin datos sensibles y endurecimiento de la API. Detalle, variables nuevas y pasos de
+despliegue en [`SEGURIDAD_Y_PRIVACIDAD.md`](SEGURIDAD_Y_PRIVACIDAD.md).

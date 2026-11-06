@@ -16,7 +16,10 @@
     "lint": "eslint .",
     "db:restore": "node scripts/restaurar-respaldo.js",
     "db:verify-restore": "node scripts/verificar-restauracion.js",
-    "smoke": "node scripts/smoke-test.js"
+    "smoke": "node scripts/smoke-test.js",
+    "db:encrypt-existing": "node scripts/cifrar-datos-existentes.js",
+    "db:scrub-audit": "node scripts/depurar-auditoria.js",
+    "db:migrate-2fa-key": "node scripts/migrar-llave-2fa.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",

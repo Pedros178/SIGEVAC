@@ -1,0 +1,5 @@
+tesseract.js 5.1.1 (Apache-2.0), copia sin modificar de dist/tesseract.min.js del paquete npm.
+Se sirve desde el mismo origen de la app en vez de un CDN con versión flotante (@5): un CDN comprometido o
+una versión nueva maliciosa ejecutaría código con acceso a toda la aplicación (incluido el token de sesión en memoria).
+SHA-384 (base64): GJqSu7vueQ9qN0E9yLPb3Wtpd7OrgK8KmYzC8T1IysG1bcvxvIO4qtYR/D3A991F
+Para actualizar: descarga la nueva versión desde npm, reemplaza el archivo y actualiza la ruta en src/utils/cargadorScripts.js.

@@ -12,3 +12,5 @@ process.env.BLOQUEO_MINUTOS = '15';
 process.env.FRONTEND_URL = 'http://localhost:5173';
 // Sin SMTP_HOST a propósito: las pruebas verifican el modo "solo registro" del servicio de correo.
 process.env.LOGIN_RATE_LIMIT_MAX = '100000'; // los tests hacen muchos logins desde la misma IP
+process.env.GENERAL_RATE_LIMIT_MAX = '1000000'; // los tests hacen miles de peticiones desde la misma IP
+process.env.PUBLIC_RATE_LIMIT_MAX = '1000000';

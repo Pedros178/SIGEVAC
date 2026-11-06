@@ -2,6 +2,14 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { app, request, loginComoAdmin } = require('./helpers');
+const { query } = require('../../src/config/database');
+
+// "Hoy" según la base de datos (la que usa CURRENT_DATE en la consulta pública), no según UTC: de noche, en zonas
+// horarias detrás de UTC (México), la fecha UTC ya es la de mañana y la prueba calcularía mal ayer/mañana.
+async function fechaBD(diasDesdeHoy) {
+  const { rows } = await query(`SELECT (CURRENT_DATE + $1::int)::text AS f`, [diasDesdeHoy]);
+  return rows[0].f;
+}
 
 describe('Galería pública administrable (subir/editar/ocultar/eliminar fotos del Home)', () => {
   let token;
@@ -137,7 +145,7 @@ describe('Galería pública administrable (subir/editar/ocultar/eliminar fotos d
 
   describe('vigencia automática (vigente_hasta)', () => {
     test('un cartel con vigente_hasta en el futuro aparece en público', async () => {
-      const manana = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const manana = await fechaBD(1);
       const subida = await request(app)
         .post('/api/galeria')
         .set('Authorization', `Bearer ${token}`)
@@ -155,7 +163,7 @@ describe('Galería pública administrable (subir/editar/ocultar/eliminar fotos d
     });
 
     test('un cartel con vigente_hasta en el pasado no aparece en público (ni el listado ni la imagen), pero sí en Administración', async () => {
-      const ayer = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const ayer = await fechaBD(-1);
       const subida = await request(app)
         .post('/api/galeria')
         .set('Authorization', `Bearer ${token}`)
@@ -181,7 +189,7 @@ describe('Galería pública administrable (subir/editar/ocultar/eliminar fotos d
     });
 
     test('quitar la vigencia (vigente_hasta vacío) hace que un cartel vencido vuelva a aparecer', async () => {
-      const ayer = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const ayer = await fechaBD(-1);
       const subida = await request(app)
         .post('/api/galeria')
         .set('Authorization', `Bearer ${token}`)

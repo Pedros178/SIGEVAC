@@ -23,6 +23,7 @@ const Inventario = lazy(() => import('./pages/Inventario.jsx'));
 const Portal = lazy(() => import('./pages/Portal.jsx'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword.jsx'));
 const SolicitudVoluntariado = lazy(() => import('./pages/SolicitudVoluntariado.jsx'));
+const AvisoPrivacidad = lazy(() => import('./pages/AvisoPrivacidad.jsx'));
 const CertificadoPublico = lazy(() => import('./pages/CertificadoPublico.jsx'));
 
 function CargandoRuta() {
@@ -42,6 +43,7 @@ export default function App() {
         <Route path="/portal" element={<Portal />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/solicitud" element={<SolicitudVoluntariado />} />
+        <Route path="/aviso-privacidad" element={<AvisoPrivacidad />} />
         <Route path="/certificado" element={<CertificadoPublico />} />
         <Route path="/cambiar-password" element={<RutaProtegida><CambiarPasswordObligatorio /></RutaProtegida>} />
         <Route

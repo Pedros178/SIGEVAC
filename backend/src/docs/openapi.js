@@ -68,6 +68,23 @@ const openapiSpec = {
   },
   security: [{ bearerAuth: [] }],
   paths: {
+    '/privacidad/voluntarios/{id}/datos-personales': {
+      get: { tags: ['Privacidad'], summary: 'Derecho de acceso: exporta todos los datos personales del voluntario (JSON)', security: [{ bearerAuth: [] }], description: 'Requiere el permiso privacidad.gestionar. ?descargar=1 fuerza la descarga como archivo.', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }], responses: { 200: { description: 'Datos personales' }, 403: { description: 'Sin permiso' }, 404: { description: 'No existe o es de otra asociación' } } },
+    },
+    '/privacidad/voluntarios/{id}/anonimizar': {
+      post: { tags: ['Privacidad'], summary: 'Derecho de cancelación: elimina/anonimiza los datos personales (irreversible)', security: [{ bearerAuth: [] }], requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['confirmar', 'motivo'], properties: { confirmar: { type: 'boolean', enum: [true] }, motivo: { type: 'string', maxLength: 500 } } } } } }, responses: { 200: { description: 'Anonimizado' }, 400: { description: 'Falta confirmación o motivo' }, 409: { description: 'Ya anonimizado' } } },
+    },
+    '/privacidad/voluntarios/{id}/consentimientos': {
+      get: { tags: ['Privacidad'], summary: 'Lista los consentimientos registrados', security: [{ bearerAuth: [] }], responses: { 200: { description: 'Lista' } } },
+      post: { tags: ['Privacidad'], summary: 'Registra la aceptación del aviso de privacidad', security: [{ bearerAuth: [] }], requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['versionAviso'], properties: { versionAviso: { type: 'string' }, finalidadesSecundarias: { type: 'boolean' }, medio: { type: 'string', enum: ['presencial', 'portal', 'documento_firmado', 'otro'] } } } } } }, responses: { 201: { description: 'Registrado' } } },
+    },
+    '/privacidad/arco': {
+      get: { tags: ['Privacidad'], summary: 'Lista solicitudes ARCO (con alerta de vencimiento)', security: [{ bearerAuth: [] }], responses: { 200: { description: 'Lista' } } },
+      post: { tags: ['Privacidad'], summary: 'Registra una solicitud ARCO', security: [{ bearerAuth: [] }], responses: { 201: { description: 'Creada' } } },
+    },
+    '/privacidad/retencion/candidatos': {
+      get: { tags: ['Privacidad'], summary: 'Bajas antiguas que aún conservan datos personales (?anios=5)', security: [{ bearerAuth: [] }], responses: { 200: { description: 'Candidatos' } } },
+    },
     '/auth/login': {
       post: {
         tags: ['Autenticación'], summary: 'Inicia sesión', security: [],

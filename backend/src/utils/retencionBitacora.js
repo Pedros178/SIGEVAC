@@ -13,6 +13,24 @@ async function purgarBitacora(dias = Number.parseInt(process.env.BITACORA_RETENC
   return { bitacora: b.rowCount, auditoria: a.rowCount, dias: retencion };
 }
 
+/**
+ * Minimización de datos: las sesiones guardan IP y user-agent, y los tokens de recuperación apuntan a
+ * una cuenta. Una vez caducados o usados ya no sirven para nada, así que se borran tras un margen
+ * (por defecto 30 días, para poder investigar un incidente reciente). Devuelve cuántos se eliminaron.
+ */
+async function purgarCredencialesCaducadas(diasMargen = Number.parseInt(process.env.SESIONES_RETENCION_DIAS || '30', 10)) {
+  const margen = Number.isFinite(diasMargen) && diasMargen >= 1 ? diasMargen : 30;
+  const s = await query(
+    `DELETE FROM sesiones WHERE expira_en < now() - ($1 || ' days')::interval OR (revocado = true AND creado_en < now() - ($1 || ' days')::interval)`,
+    [String(margen)]
+  );
+  const t = await query(
+    `DELETE FROM tokens_recuperacion WHERE expira_en < now() - ($1 || ' days')::interval OR (usado = true AND creado_en < now() - ($1 || ' days')::interval)`,
+    [String(margen)]
+  );
+  return { sesiones: s.rowCount, tokens_recuperacion: t.rowCount, dias: margen };
+}
+
 /** Programa la purga diaria (03:00, hora del servidor). No corre en pruebas. */
 function programarPurgaBitacora() {
   if (process.env.NODE_ENV === 'test') return null;
@@ -20,10 +38,11 @@ function programarPurgaBitacora() {
   return cron.schedule('0 3 * * *', async () => {
     try {
       console.log('[retencionBitacora] Purga completada:', await purgarBitacora());
+      console.log('[retencionBitacora] Credenciales caducadas:', await purgarCredencialesCaducadas());
     } catch (err) {
       console.error('[retencionBitacora] Error en la purga:', err.message);
     }
   });
 }
 
-module.exports = { purgarBitacora, programarPurgaBitacora };
+module.exports = { purgarBitacora, purgarCredencialesCaducadas, programarPurgaBitacora };

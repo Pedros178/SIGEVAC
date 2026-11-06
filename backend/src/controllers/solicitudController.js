@@ -10,7 +10,14 @@ const SolicitudController = {
       if (!longitudValida(nombre, 200) || !longitudValida(telefono, 30) || !longitudValida(mensaje, 2000)) {
         return res.status(400).json({ error: 'Alguno de los campos excede la longitud permitida.' });
       }
-      const solicitud = await SolicitudModel.crear({ asociacionId: req.body.asociacion_id, nombre, correo, telefono, mensaje });
+      // Aviso de privacidad (LFPDPPP): sin aceptarlo no se recaban datos personales. Se deja constancia de la versión y la fecha.
+      if (req.body.acepta_aviso_privacidad !== true) {
+        return res.status(400).json({ error: 'Debes aceptar el aviso de privacidad para enviar tu solicitud.', code: 'AVISO_PRIVACIDAD_REQUERIDO' });
+      }
+      const solicitud = await SolicitudModel.crear({
+        asociacionId: req.body.asociacion_id, nombre, correo, telefono, mensaje,
+        versionAviso: process.env.AVISO_PRIVACIDAD_VERSION || '2026-1',
+      });
       return res.status(201).json({ solicitud });
     } catch (err) { return next(err); }
   },

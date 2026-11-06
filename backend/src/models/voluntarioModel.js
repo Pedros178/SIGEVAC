@@ -1,5 +1,6 @@
 const { query, getClient } = require('../config/database');
 const { esMenorDeEdad } = require('../utils/edad');
+const { cifrarDato, revelarFila } = require('../utils/cifradoDatos');
 
 /**
  * Normaliza el texto del buscador: recorta, descarta lo vacío y escapa los
@@ -90,8 +91,8 @@ const VoluntarioModel = {
           datos.curp || null, datos.sexo || null, datos.fechaNacimiento, datos.estadoCivil || null,
           datos.nacionalidad || 'Mexicana', datos.correo || null, datos.telefono || null, datos.telefonoFijo || null,
           datos.telefonoCelular || null, datos.direccion || null, datos.colonia || null, datos.codigoPostal || null,
-          municipioId, estadoId, datos.tipoSangre || null, datos.alergias || null,
-          datos.discapacidad || null, datos.enfermedadCronica || null, datos.contactoEmergenciaNombre || null,
+          municipioId, estadoId, cifrarDato(datos.tipoSangre || null), cifrarDato(datos.alergias || null),
+          cifrarDato(datos.discapacidad || null), cifrarDato(datos.enfermedadCronica || null), datos.contactoEmergenciaNombre || null,
           datos.contactoEmergenciaTelefono || null, datos.contactoEmergenciaParentesco || null,
           datos.contactoEmergenciaDomicilio || null, datos.contactoEmergenciaColonia || null,
           datos.contactoEmergenciaMunicipio || null, datos.contactoEmergenciaEstado || null,
@@ -101,7 +102,7 @@ const VoluntarioModel = {
       );
 
       if (!client) await ejecutor.query('COMMIT');
-      return rows[0];
+      return revelarFila(rows[0]);
     } catch (err) {
       if (!client) await ejecutor.query('ROLLBACK');
       throw err;
@@ -119,7 +120,7 @@ const VoluntarioModel = {
        WHERE v.id = $1`,
       [id]
     );
-    return rows[0] || null;
+    return revelarFila(rows[0]) || null;
   },
 
   async listar({ asociacionId, activo, busqueda, tipo, limit = 50, offset = 0 } = {}) {
@@ -200,8 +201,8 @@ const VoluntarioModel = {
       sexo: datos.sexo, curp: datos.curp, correo: datos.correo, telefono: datos.telefono, telefono_fijo: datos.telefonoFijo,
       estado_id: estadoId, municipio_id: municipioId,
       telefono_celular: datos.telefonoCelular, direccion: datos.direccion, colonia: datos.colonia,
-      codigo_postal: datos.codigoPostal, tipo_sangre: datos.tipoSangre, alergias: datos.alergias,
-      discapacidad: datos.discapacidad, enfermedad_cronica: datos.enfermedadCronica,
+      codigo_postal: datos.codigoPostal, tipo_sangre: cifrarDato(datos.tipoSangre), alergias: cifrarDato(datos.alergias),
+      discapacidad: cifrarDato(datos.discapacidad), enfermedad_cronica: cifrarDato(datos.enfermedadCronica),
       contacto_emergencia_nombre: datos.contactoEmergenciaNombre,
       contacto_emergencia_telefono: datos.contactoEmergenciaTelefono,
       contacto_emergencia_parentesco: datos.contactoEmergenciaParentesco,
@@ -233,7 +234,7 @@ const VoluntarioModel = {
       `UPDATE voluntarios SET ${sets.join(', ')}, actualizado_en = now() WHERE id = $${i} RETURNING *`,
       valores
     );
-    return rows[0];
+    return revelarFila(rows[0]);
   },
 
   async desactivar(id) {

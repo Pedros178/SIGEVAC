@@ -26,6 +26,7 @@ const insigniaRoutes = require('./insigniaRoutes');
 const galeriaRoutes = require('./galeriaRoutes');
 const geocodificacionRoutes = require('./geocodificacionRoutes');
 const catalogoRoutes = require('./catalogoRoutes');
+const privacidadRoutes = require('./privacidadRoutes');
 const { query } = require('../config/database');
 
 const router = express.Router();
@@ -85,6 +86,7 @@ router.use('/publico', publicRoutes);
 router.use('/evidencias', evidenciaRoutes); // servir fotos de evidencia (antes solo se podían subir, nunca ver)
 router.use('/insignias', insigniaRoutes); // catálogo de gamificación
 router.use('/galeria', galeriaRoutes); // administración de la galería de fotos pública
+router.use('/privacidad', privacidadRoutes); // Fase 13: derechos ARCO, consentimientos, anonimización
 router.use('/geocodificacion', geocodificacionRoutes); // proxy de Nominatim (su política prohíbe llamarlo desde el navegador)
 
 // Los siguientes módulos se irán agregando en las próximas fases:

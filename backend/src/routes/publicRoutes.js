@@ -2,8 +2,12 @@ const express = require('express');
 const CredencialController = require('../controllers/credencialController');
 const PaginaPublicaController = require('../controllers/paginaPublicaController');
 const GaleriaController = require('../controllers/galeriaController');
+const { limitadorPublico } = require('../middlewares/limitadores');
 
 const router = express.Router();
+
+// Endpoints sin sesión: límite más estricto que el general (ver middlewares/limitadores.js).
+router.use(limitadorPublico());
 
 router.get('/certificados/:codigo.pdf', CredencialController.certificadoPdf);
 router.get('/certificados/:codigo', CredencialController.certificadoPublico);
