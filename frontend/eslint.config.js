@@ -13,7 +13,7 @@ import globals from 'globals';
  * (como en el refactor de Administracion.jsx / VoluntarioDetalle.jsx).
  */
 export default [
-  { ignores: ['dist/**', 'coverage/**'] },
+  { ignores: ['dist/**', 'coverage/**', 'public/vendor/**'] }, // librerías de terceros sin modificar (minificadas)
   js.configs.recommended,
   {
     files: ['**/*.{js,jsx}'],
