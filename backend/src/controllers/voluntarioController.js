@@ -4,6 +4,7 @@ const ExcelJS = require('exceljs');
 const { getClient } = require('../config/database');
 const VoluntarioModel = require('../models/voluntarioModel');
 const TutorModel = require('../models/tutorModel');
+const PrivacidadModel = require('../models/privacidadModel');
 const { ExpedienteModel } = require('../models/expedienteModel');
 const { almacenamientoRemoto, guardarArchivo, eliminarArchivo, obtenerArchivo } = require('../config/storage');
 
@@ -23,6 +24,27 @@ function valorDeCelda(valor) {
     return undefined;
   }
   return typeof valor === 'string' ? valor.trim() || undefined : String(valor);
+}
+
+
+// Art. 8 de la Ley: los datos SENSIBLES (estado de salud) solo se tratan con consentimiento expreso y por escrito.
+const CAMPOS_SALUD = ['tipoSangre', 'alergias', 'discapacidad', 'enfermedadCronica'];
+const MEDIOS_CONSENTIMIENTO = ['presencial', 'portal', 'documento_firmado', 'firma_electronica', 'otro'];
+const SIN_DATO = /^\s*(ning[uú]n[oa]?|n\/?a|no|-+|sin\s.*)\s*$/i; // "Ninguna", "N/A"… no son datos de salud
+function incluyeDatosSalud(datos) {
+  return CAMPOS_SALUD.some((c) => typeof datos[c] === 'string' && datos[c].trim() !== '' && !SIN_DATO.test(datos[c]));
+}
+const ERROR_CONSENTIMIENTO = {
+  error: 'Para guardar datos de salud (tipo de sangre, alergias, discapacidad, enfermedad crónica) se requiere el consentimiento expreso y por escrito de la persona titular o de su tutor si es menor (art. 8 de la Ley). Marca la confirmación del consentimiento o deja esos campos vacíos.',
+  code: 'CONSENTIMIENTO_DATOS_SENSIBLES_REQUERIDO',
+};
+async function registrarConsentimientoSensibles(req, voluntarioId, esMenor, client) {
+  const medio = MEDIOS_CONSENTIMIENTO.includes(req.body.medioConsentimiento) ? req.body.medioConsentimiento : 'presencial';
+  return PrivacidadModel.registrarConsentimiento({
+    asociacionId: req.usuario.asociacionId, voluntarioId, tipo: 'datos_sensibles', medio, usuarioId: req.usuario.id,
+    versionAviso: await PrivacidadModel.versionAvisoVigente(req.usuario.asociacionId),
+    otorgadoPor: esMenor ? 'tutor' : 'titular',
+  }, client);
 }
 
 const VoluntarioController = {
@@ -86,6 +108,9 @@ const VoluntarioController = {
         });
       }
 
+      const conSalud = incluyeDatosSalud(datos);
+      if (conSalud && datos.consentimientoDatosSensibles !== true) return res.status(400).json(ERROR_CONSENTIMIENTO);
+
       await client.query('BEGIN');
 
       const voluntario = await VoluntarioModel.crear(
@@ -102,6 +127,8 @@ const VoluntarioController = {
       }
 
       await ExpedienteModel.crearParaVoluntario(voluntario.id, menorEdad, client);
+
+      if (conSalud) await registrarConsentimientoSensibles(req, voluntario.id, menorEdad, client);
 
       await client.query('COMMIT');
 
@@ -216,8 +243,15 @@ const VoluntarioController = {
           return res.status(400).json({ error: 'El voluntario es menor de edad: se requieren los datos del tutor.' });
         }
       }
+      let consentimientoNuevo = false;
+      if (incluyeDatosSalud(req.body)) {
+        const vigente = await PrivacidadModel.tieneConsentimientoVigente(req.params.id, 'datos_sensibles');
+        if (!vigente && req.body.consentimientoDatosSensibles !== true) return res.status(400).json(ERROR_CONSENTIMIENTO);
+        consentimientoNuevo = !vigente;
+      }
       const voluntario = await VoluntarioModel.actualizar(req.params.id, req.body);
       if (!voluntario) return res.status(404).json({ error: 'Voluntario no encontrado.' });
+      if (consentimientoNuevo) await registrarConsentimientoSensibles(req, voluntario.id, Boolean(voluntario.es_menor_edad));
 
       if (req.body.tiposVoluntario) {
         await VoluntarioModel.asignarTipos(voluntario.id, req.body.tiposVoluntario);

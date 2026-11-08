@@ -4,6 +4,7 @@ import FotoAutenticada from '../components/FotoAutenticada.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import api, { guardarAccessToken } from '../services/api';
 import SelectorUbicacionCatalogo from '../components/SelectorUbicacionCatalogo.jsx';
+import PanelPrivacidad from '../components/PanelPrivacidad.jsx';
 
 // Cada pestaña declara qué permiso la habilita (Módulo 23 — Panel
 // Administrativo diferenciado por rol): un usuario solo ve las pestañas
@@ -21,6 +22,7 @@ const PESTANAS = [
   { id: 'documentos', etiqueta: 'Documentos requeridos', permiso: 'configuracion.consultar' },
   { id: 'catalogos', etiqueta: 'Catálogos', permiso: 'configuracion.consultar' },
   { id: 'respaldos', etiqueta: 'Respaldos', permiso: 'respaldos.gestionar' },
+  { id: 'privacidad', etiqueta: 'Privacidad (ARCO)', permiso: 'privacidad.gestionar' },
 ];
 
 export default function Administracion() {
@@ -78,6 +80,7 @@ export default function Administracion() {
             {pestana === 'documentos' && <PanelDocumentosRequeridos />}
             {pestana === 'catalogos' && <PanelCatalogos />}
             {pestana === 'respaldos' && <PanelRespaldos />}
+            {pestana === 'privacidad' && <PanelPrivacidad />}
           </>
         )}
       </div>

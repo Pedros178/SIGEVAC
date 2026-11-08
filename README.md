@@ -415,3 +415,9 @@ Verificado con la suite completa de esa fase: **244/244 pruebas backend, 56/56 p
 Cifrado de datos de salud en reposo, respaldos cifrados, derechos ARCO, consentimientos, anonimización,
 auditoría sin datos sensibles y endurecimiento de la API. Detalle, variables nuevas y pasos de
 despliegue en [`SEGURIDAD_Y_PRIVACIDAD.md`](SEGURIDAD_Y_PRIVACIDAD.md).
+
+## Fase 14 — Cumplimiento de la Ley de Protección de Datos (2025)
+
+Consentimiento expreso y por escrito para datos de salud, aviso de privacidad integral y simplificado configurable, plazos ARCO en días
+hábiles, panel de privacidad en Administración. Detalle por artículo en [`CUMPLIMIENTO_LEY_DATOS.md`](CUMPLIMIENTO_LEY_DATOS.md) y
+procedimiento ante incidentes en [`PROTOCOLO_VULNERACIONES.md`](PROTOCOLO_VULNERACIONES.md).

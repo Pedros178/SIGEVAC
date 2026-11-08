@@ -20,5 +20,9 @@ router.get('/retencion/candidatos', PrivacidadController.candidatosARetencion);
 router.get('/arco', PrivacidadController.listarSolicitudesArco);
 router.post('/arco', PrivacidadController.crearSolicitudArco);
 router.patch('/arco/:id', PrivacidadController.resolverSolicitudArco);
+router.patch('/arco/:id/ampliar', PrivacidadController.ampliarSolicitudArco);
+
+router.get('/aviso', PrivacidadController.obtenerAviso);
+router.put('/aviso', PrivacidadController.guardarAviso);
 
 module.exports = router;

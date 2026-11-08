@@ -14,6 +14,13 @@ function calcularEsMenor(fechaNacimiento) {
   return edad < 18;
 }
 
+// Art. 8 de la Ley: el estado de salud es dato sensible y se guarda solo con consentimiento expreso y por escrito.
+// "Ninguna", "N/A"… no son datos de salud (misma regla que el servidor).
+const SIN_DATO = /^\s*(ning[uú]n[oa]?|n\/?a|no|-+|sin\s.*)\s*$/i;
+function hayDatosSalud(f) {
+  return ['tipoSangre', 'discapacidad', 'enfermedadCronica', 'alergias'].some((c) => typeof f[c] === 'string' && f[c].trim() !== '' && !SIN_DATO.test(f[c]));
+}
+
 export default function FormularioVoluntario({ onCreado, onActualizado, onCancelar, voluntarioInicial = null, modoEdicion = false }) {
   const [tiposDisponibles, setTiposDisponibles] = useState([]);
   const { opciones: opcionesParentesco } = useCatalogo('parentesco');
@@ -22,7 +29,7 @@ export default function FormularioVoluntario({ onCreado, onActualizado, onCancel
     nombre: '', apellidoPaterno: '', apellidoMaterno: '', numeroControl: '', fechaNacimiento: '',
     fechaIngreso: new Date().toISOString().slice(0, 10),
     sexo: '', curp: '', correo: '', telefono: '', telefonoFijo: '', telefonoCelular: '', colonia: '',
-    discapacidad: '', enfermedadCronica: '', tipoSangre: '', direccion: '', estado: '', municipio: '',
+    discapacidad: '', enfermedadCronica: '', tipoSangre: '', consentimientoDatosSensibles: false, direccion: '', estado: '', municipio: '',
     contactoEmergenciaNombre: '', contactoEmergenciaDomicilio: '', contactoEmergenciaColonia: '',
     contactoEmergenciaMunicipio: '', contactoEmergenciaEstado: '', contactoEmergenciaTelefonoFijo: '',
     contactoEmergenciaTelefonoCelular: '', contactoEmergenciaCorreo: '', contactoEmergenciaParentesco: '',
@@ -49,6 +56,8 @@ export default function FormularioVoluntario({ onCreado, onActualizado, onCancel
   }, []);
 
   const esMenor = calcularEsMenor(form.fechaNacimiento);
+  const yaConsintio = Boolean(voluntarioInicial?.consentimiento_datos_sensibles);
+  const conSalud = hayDatosSalud(form);
 
   function actualizarCampo(campo, valor) {
     setForm((prev) => ({ ...prev, [campo]: valor }));
@@ -76,10 +85,16 @@ export default function FormularioVoluntario({ onCreado, onActualizado, onCancel
       return;
     }
 
+    if (conSalud && !yaConsintio && !form.consentimientoDatosSensibles) {
+      setError('Para guardar datos de salud confirma que se obtuvo el consentimiento expreso y por escrito (de la persona o de su tutor), o deja esos campos vacíos.');
+      return;
+    }
+
     setEnviando(true);
     try {
       const payload = { ...form };
       if (!esMenor) delete payload.tutor;
+      if (!conSalud || yaConsintio) delete payload.consentimientoDatosSensibles;
       const { data } = modoEdicion
         ? await api.put(`/voluntarios/${voluntarioInicial.id}`, payload)
         : await api.post('/voluntarios', payload);
@@ -125,6 +140,30 @@ export default function FormularioVoluntario({ onCreado, onActualizado, onCancel
           <input className="sg-input" value={form.enfermedadCronica} onChange={(e) => actualizarCampo('enfermedadCronica', e.target.value)} placeholder="Ninguna o especificar" />
         </Campo>
       </div>
+
+      {conSalud && (
+        <div role="group" aria-label="Consentimiento para datos de salud" style={{ border: '1px solid var(--sg-line, #d0d5dd)', borderRadius: 8, padding: 12, marginBottom: 12, fontSize: 13.5 }}>
+          <strong>Datos de salud: consentimiento expreso y por escrito</strong>
+          <p style={{ margin: '6px 0' }}>
+            El estado de salud es un dato personal <em>sensible</em>. Solo se usa para atender emergencias durante las actividades y se guarda cifrado.
+            Antes de capturarlo, la persona titular (o su tutor, si es menor de edad) debe haber leído el{' '}
+            <a href="/aviso-privacidad" target="_blank" rel="noopener noreferrer">aviso de privacidad</a> y aceptado por escrito (firma autógrafa o electrónica).
+          </p>
+          {yaConsintio ? (
+            <p style={{ margin: 0 }}>✔ Ya hay un consentimiento vigente registrado para este voluntario.</p>
+          ) : (
+            <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontWeight: 400 }}>
+              <input
+                type="checkbox"
+                checked={form.consentimientoDatosSensibles}
+                onChange={(e) => actualizarCampo('consentimientoDatosSensibles', e.target.checked)}
+                style={{ marginTop: 3 }}
+              />
+              <span>Confirmo que {esMenor ? 'el tutor' : 'la persona titular'} otorgó su consentimiento expreso y por escrito para tratar estos datos de salud.</span>
+            </label>
+          )}
+        </div>
+      )}
 
       <div style={styles.fila}>
         <Campo etiqueta="Fecha de nacimiento" required>
