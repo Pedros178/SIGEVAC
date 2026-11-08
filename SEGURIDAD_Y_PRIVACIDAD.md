@@ -24,7 +24,7 @@
    `JWT_SECRET`: NO hace falta que reactiven nada, el paso 7 los migra a la llave nueva.
 2. Configura `DATA_ENC_KEY` y `TWO_FACTOR_ENC_KEY` en Render → Environment.
 3. **Respaldo previo** de la base.
-4. `npm run db:setup` (aplica migraciones 022 y 023).
+4. `npm run db:setup` (aplica migraciones 022, 023 y 024).
 5. `npm run db:encrypt-existing` (cifra lo ya guardado; idempotente; `-- --simular` solo cuenta).
 6. `npm run db:scrub-audit` (oculta datos sensibles del historial de auditoría; idempotente).
 7. `npm run db:migrate-2fa-key` (re-cifra los secretos 2FA existentes con `TWO_FACTOR_ENC_KEY`; necesita `JWT_SECRET` actual; `-- --simular` solo cuenta; todo o nada). **Ejecútalo antes de que la app corra con la llave nueva** o, si ya corre, de inmediato: mientras tanto, los usuarios con 2FA no podrán entrar con código.
@@ -38,8 +38,7 @@
 - CURP, teléfono, correo, dirección y datos del tutor **siguen en claro** en la BD (se necesitan para buscar/duplicados). Se protegen con control de acceso, no con cifrado.
 - La anonimización no alcanza fotos de grupo en evidencias de actividades ni mensajes ya enviados por correo/WhatsApp.
 - La auditoría y bitácora conservan quién hizo qué (sin datos sensibles); es intencional.
-- El texto del **aviso de privacidad es una plantilla**: debe revisarlo la representación legal de la asociación (domicilio, finalidades, transferencias) y configurar `VITE_ARCO_CORREO`, `VITE_ARCO_DOMICILIO` y `AVISO_PRIVACIDAD_VERSION`.
+- El **aviso de privacidad** se configura en *Administración → Privacidad* (persona designada, correo ARCO, domicilio, versión) y debe revisarlo la representación legal de la asociación. Ver `CUMPLIMIENTO_LEY_DATOS.md`.
 - Las fotos de `frontend/public/galeria/` son públicas: confirma autorización de las personas (sobre todo menores).
 - OpenCV (`docs.opencv.org/4.9.0`) sigue cargándose desde un sitio externo sin verificación de integridad; lo ideal es alojarlo localmente.
 - **Cabeceras del frontend**: Render no lee `_headers`; configúralas en Render → Static Site → Headers: `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, `Strict-Transport-Security: max-age=31536000`. Una CSP debe probarse primero con `Content-Security-Policy-Report-Only` (el escáner usa OpenCV/tesseract y WASM).
-- No hay todavía pantalla en el panel para ARCO/consentimientos: se usa la API (Swagger en desarrollo).

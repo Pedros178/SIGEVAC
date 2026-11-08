@@ -113,7 +113,8 @@ const VoluntarioModel = {
 
   async obtenerPorId(id) {
     const { rows } = await query(
-      `SELECT v.*, m.nombre AS municipio_nombre, e.nombre AS estado_nombre
+      `SELECT v.*, m.nombre AS municipio_nombre, e.nombre AS estado_nombre,
+              EXISTS (SELECT 1 FROM consentimientos_privacidad c WHERE c.voluntario_id = v.id AND c.tipo = 'datos_sensibles' AND c.revocado_en IS NULL) AS consentimiento_datos_sensibles
        FROM voluntarios v
        LEFT JOIN municipios m ON m.id = v.municipio_id
        LEFT JOIN estados_mx e ON e.id = v.estado_id

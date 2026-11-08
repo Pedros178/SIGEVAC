@@ -2,9 +2,11 @@ const PrivacidadModel = require('../models/privacidadModel');
 const { eliminarArchivo } = require('../config/storage');
 const { esUuid } = require('../utils/identificadores');
 const { query } = require('../config/database');
-const { longitudValida } = require('../utils/validadores');
+const { longitudValida, esCorreoValido } = require('../utils/validadores');
 
-const MEDIOS = ['presencial', 'portal', 'documento_firmado', 'otro'];
+const MEDIOS = ['presencial', 'portal', 'documento_firmado', 'firma_electronica', 'otro'];
+const TIPOS_CONSENTIMIENTO = ['aviso', 'datos_sensibles', 'finalidades_secundarias', 'transferencias'];
+const CAMPOS_AVISO = { domicilio: 500, correo_arco: 200, telefono_arco: 40, persona_designada: 200, version_aviso: 30, medios_limitar_uso: 1000 };
 const TIPOS_ARCO = ['acceso', 'rectificacion', 'cancelacion', 'oposicion'];
 const ESTADOS_ARCO = ['recibida', 'en_proceso', 'atendida', 'rechazada'];
 
@@ -12,7 +14,7 @@ const PrivacidadController = {
   /** POST /api/privacidad/voluntarios/:id/consentimientos */
   async registrarConsentimiento(req, res, next) {
     try {
-      const { versionAviso, finalidadesSecundarias, medio } = req.body;
+      const { versionAviso, finalidadesSecundarias, medio, tipo, otorgadoPor } = req.body;
       if (typeof versionAviso !== 'string' || !versionAviso.trim() || versionAviso.length > 30) {
         return res.status(400).json({ error: 'versionAviso es obligatoria (texto de hasta 30 caracteres, p. ej. "2026-1").' });
       }
@@ -20,9 +22,11 @@ const PrivacidadController = {
       if (finalidadesSecundarias !== undefined && typeof finalidadesSecundarias !== 'boolean') {
         return res.status(400).json({ error: 'finalidadesSecundarias debe ser verdadero o falso.' });
       }
+      if (tipo !== undefined && !TIPOS_CONSENTIMIENTO.includes(tipo)) return res.status(400).json({ error: `tipo debe ser uno de: ${TIPOS_CONSENTIMIENTO.join(', ')}.` });
+      if (otorgadoPor !== undefined && !['titular', 'tutor'].includes(otorgadoPor)) return res.status(400).json({ error: 'otorgadoPor debe ser titular o tutor.' });
       const consentimiento = await PrivacidadModel.registrarConsentimiento({
         asociacionId: req.usuario.asociacionId, voluntarioId: req.params.id, versionAviso: versionAviso.trim(),
-        finalidadesSecundarias, medio, usuarioId: req.usuario.id,
+        finalidadesSecundarias, medio, usuarioId: req.usuario.id, tipo, otorgadoPor,
       });
       return res.status(201).json({ consentimiento });
     } catch (err) { return next(err); }
@@ -118,13 +122,58 @@ const PrivacidadController = {
   async resolverSolicitudArco(req, res, next) {
     try {
       if (!esUuid(req.params.id)) return res.status(400).json({ error: 'Identificador inválido.' });
-      const { estado, resolucion } = req.body;
+      const { estado, resolucion, notificadoTitular } = req.body;
       if (!ESTADOS_ARCO.includes(estado)) return res.status(400).json({ error: `estado debe ser uno de: ${ESTADOS_ARCO.join(', ')}.` });
       if (resolucion !== undefined && (typeof resolucion !== 'string' || !longitudValida(resolucion, 2000))) return res.status(400).json({ error: 'resolucion excede 2000 caracteres.' });
-      const solicitud = await PrivacidadModel.resolverSolicitudArco(req.params.id, req.usuario.asociacionId, { estado, resolucion, usuarioId: req.usuario.id });
+      const solicitud = await PrivacidadModel.resolverSolicitudArco(req.params.id, req.usuario.asociacionId, { estado, resolucion, usuarioId: req.usuario.id, notificadoTitular });
       if (!solicitud) return res.status(404).json({ error: 'Solicitud no encontrada.' });
       return res.json({ solicitud });
     } catch (err) { return next(err); }
+  },
+
+  /** PATCH /api/privacidad/arco/:id/ampliar — art. 31: se puede ampliar una sola vez, por un periodo igual. */
+  async ampliarSolicitudArco(req, res, next) {
+    try {
+      if (!esUuid(req.params.id)) return res.status(400).json({ error: 'Identificador inválido.' });
+      const solicitud = await PrivacidadModel.ampliarSolicitudArco(req.params.id, req.usuario.asociacionId);
+      if (!solicitud) return res.status(409).json({ error: 'La solicitud no existe, ya está cerrada o ya fue ampliada (solo se puede una vez).' });
+      return res.json({ solicitud });
+    } catch (err) { return next(err); }
+  },
+
+  // ---------- Aviso de privacidad (art. 15) ----------
+  /** GET /api/publico/aviso-privacidad?asociacion_id= — público: el aviso debe estar a disposición de cualquier titular. */
+  async avisoPublico(req, res, next) {
+    try {
+      if (!esUuid(req.query.asociacion_id)) return res.status(400).json({ error: 'asociacion_id inválido.' });
+      const aviso = await PrivacidadModel.obtenerAviso(req.query.asociacion_id);
+      if (!aviso) return res.status(404).json({ error: 'Asociación no encontrada.' });
+      aviso.version_aviso = aviso.version_aviso || process.env.AVISO_PRIVACIDAD_VERSION || '2026-1';
+      aviso.completo = Boolean(aviso.domicilio && aviso.correo_arco && aviso.persona_designada);
+      return res.json({ aviso });
+    } catch (err) { return next(err); }
+  },
+
+  /** PUT /api/privacidad/aviso — la asociación captura sus datos de contacto y persona designada (art. 29). */
+  async guardarAviso(req, res, next) {
+    try {
+      const campos = {};
+      for (const [campo, max] of Object.entries(CAMPOS_AVISO)) {
+        const valor = req.body[campo];
+        if (valor === undefined) continue;
+        if (typeof valor !== 'string' || valor.length > max) return res.status(400).json({ error: `${campo} debe ser texto de hasta ${max} caracteres.` });
+        campos[campo] = valor.trim();
+      }
+      if (campos.correo_arco && !esCorreoValido(campos.correo_arco)) return res.status(400).json({ error: 'correo_arco no tiene un formato válido.' });
+      if (!Object.keys(campos).length) return res.status(400).json({ error: 'No se envió ningún campo del aviso.' });
+      await PrivacidadModel.guardarAviso(req.usuario.asociacionId, campos);
+      return res.json({ aviso: await PrivacidadModel.obtenerAviso(req.usuario.asociacionId) });
+    } catch (err) { return next(err); }
+  },
+
+  /** GET /api/privacidad/aviso */
+  async obtenerAviso(req, res, next) {
+    try { return res.json({ aviso: await PrivacidadModel.obtenerAviso(req.usuario.asociacionId) }); } catch (err) { return next(err); }
   },
 };
 

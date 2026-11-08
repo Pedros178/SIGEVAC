@@ -3,34 +3,73 @@ const VoluntarioModel = require('./voluntarioModel');
 
 const NOMBRE_ANONIMO = 'Persona anonimizada';
 
+/** Subconsulta SQL: el día hábil número N (lunes a viernes) contado DESPUÉS de la fecha base. */
+const SQL_DIAS_HABILES = (base, n) => `(SELECT d::date FROM generate_series((${base})::date + 1, (${base})::date + ${n * 2 + 10}, interval '1 day') d
+   WHERE extract(isodow FROM d) < 6 OFFSET ${n - 1} LIMIT 1)`;
+
 const PrivacidadModel = {
   // ---------- Consentimientos / aviso de privacidad ----------
-  async registrarConsentimiento({ asociacionId, voluntarioId, versionAviso, finalidadesSecundarias, medio, usuarioId }) {
-    const { rows } = await query(
-      `INSERT INTO consentimientos_privacidad (asociacion_id, voluntario_id, version_aviso, finalidades_secundarias, medio, registrado_por)
-       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-      [asociacionId, voluntarioId, versionAviso, Boolean(finalidadesSecundarias), medio || 'presencial', usuarioId || null]
+  async registrarConsentimiento({ asociacionId, voluntarioId, versionAviso, finalidadesSecundarias, medio, usuarioId, tipo, otorgadoPor }, client) {
+    const ejecutor = client || { query };
+    const { rows } = await ejecutor.query(
+      `INSERT INTO consentimientos_privacidad (asociacion_id, voluntario_id, version_aviso, finalidades_secundarias, medio, registrado_por, tipo, otorgado_por)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [asociacionId, voluntarioId, versionAviso, Boolean(finalidadesSecundarias), medio || 'presencial', usuarioId || null, tipo || 'aviso', otorgadoPor || 'titular']
     );
     return rows[0];
   },
 
+  /** ¿Existe un consentimiento vigente (no revocado) de este tipo? (art. 8: datos sensibles). */
+  async tieneConsentimientoVigente(voluntarioId, tipo, client) {
+    const ejecutor = client || { query };
+    const { rows } = await ejecutor.query(
+      `SELECT 1 FROM consentimientos_privacidad WHERE voluntario_id = $1 AND tipo = $2 AND revocado_en IS NULL LIMIT 1`,
+      [voluntarioId, tipo]
+    );
+    return Boolean(rows[0]);
+  },
+
   async listarConsentimientos(voluntarioId) {
     const { rows } = await query(
-      `SELECT id, version_aviso, finalidades_secundarias, medio, revocado_en, creado_en
+      `SELECT id, tipo, otorgado_por, version_aviso, finalidades_secundarias, medio, revocado_en, creado_en
        FROM consentimientos_privacidad WHERE voluntario_id = $1 ORDER BY creado_en DESC`,
       [voluntarioId]
     );
     return rows;
   },
 
-  /** Revoca (no borra: la constancia se conserva) un consentimiento del voluntario indicado. */
+  /**
+   * Revoca (no borra: la constancia se conserva) un consentimiento del voluntario indicado. Art. 7: la
+   * revocación no tiene efectos retroactivos, pero SÍ debe cesar el tratamiento: si el consentimiento revocado
+   * era el de datos sensibles y no queda otro vigente, se eliminan los datos de salud guardados.
+   */
   async revocarConsentimiento(id, voluntarioId) {
-    const { rows } = await query(
-      `UPDATE consentimientos_privacidad SET revocado_en = now()
-       WHERE id = $1 AND voluntario_id = $2 AND revocado_en IS NULL RETURNING id, version_aviso, finalidades_secundarias, medio, revocado_en, creado_en`,
-      [id, voluntarioId]
-    );
-    return rows[0] || null;
+    const client = await getClient();
+    try {
+      await client.query('BEGIN');
+      const { rows } = await client.query(
+        `UPDATE consentimientos_privacidad SET revocado_en = now()
+         WHERE id = $1 AND voluntario_id = $2 AND revocado_en IS NULL
+         RETURNING id, tipo, otorgado_por, version_aviso, finalidades_secundarias, medio, revocado_en, creado_en`,
+        [id, voluntarioId]
+      );
+      if (!rows[0]) { await client.query('ROLLBACK'); return null; }
+      let datosSensiblesEliminados = false;
+      if (rows[0].tipo === 'datos_sensibles' && !(await this.tieneConsentimientoVigente(voluntarioId, 'datos_sensibles', client))) {
+        await client.query(
+          `UPDATE voluntarios SET tipo_sangre = NULL, alergias = NULL, discapacidad = NULL, enfermedad_cronica = NULL, actualizado_en = now() WHERE id = $1`,
+          [voluntarioId]
+        );
+        datosSensiblesEliminados = true;
+      }
+      await client.query('COMMIT');
+      return { ...rows[0], datos_sensibles_eliminados: datosSensiblesEliminados };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   },
 
   // ---------- Acceso / portabilidad ----------
@@ -178,9 +217,12 @@ const PrivacidadModel = {
   },
 
   // ---------- Solicitudes ARCO ----------
+  // Los días se cuentan HÁBILES (lunes a viernes; art. 2, fr. VIII). No se descuentan feriados oficiales: el plazo
+  // real puede ser un poco más largo, nunca más corto, así que la alerta es conservadora.
   async crearSolicitudArco({ asociacionId, voluntarioId, tipo, detalle, usuarioId }) {
     const { rows } = await query(
-      `INSERT INTO solicitudes_arco (asociacion_id, voluntario_id, tipo, detalle, registrada_por) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      `INSERT INTO solicitudes_arco (asociacion_id, voluntario_id, tipo, detalle, registrada_por, fecha_limite)
+       VALUES ($1,$2,$3,$4,$5, ${SQL_DIAS_HABILES('CURRENT_DATE', 20)}) RETURNING *`,
       [asociacionId, voluntarioId || null, tipo, detalle || null, usuarioId || null]
     );
     return rows[0];
@@ -188,7 +230,9 @@ const PrivacidadModel = {
 
   async listarSolicitudesArco(asociacionId, estado) {
     const { rows } = await query(
-      `SELECT s.*, (s.estado IN ('recibida','en_proceso') AND s.fecha_limite < CURRENT_DATE) AS vencida,
+      `SELECT s.*,
+              ((s.estado = 'recibida' AND s.fecha_limite < CURRENT_DATE)
+               OR (s.estado = 'en_proceso' AND s.fecha_limite_ejecucion IS NOT NULL AND s.fecha_limite_ejecucion < CURRENT_DATE)) AS vencida,
               CASE WHEN v.anonimizado_en IS NULL THEN trim(concat_ws(' ', v.nombre, v.apellido_paterno, v.apellido_materno)) ELSE v.nombre END AS voluntario_nombre
        FROM solicitudes_arco s LEFT JOIN voluntarios v ON v.id = s.voluntario_id
        WHERE s.asociacion_id = $1 AND ($2::text IS NULL OR s.estado = $2)
@@ -198,16 +242,65 @@ const PrivacidadModel = {
     return rows;
   },
 
-  async resolverSolicitudArco(id, asociacionId, { estado, resolucion, usuarioId }) {
+  /**
+   * 'en_proceso' = ya se comunicó la determinación y se está haciendo efectiva: arranca el plazo de 15 días hábiles
+   * (art. 31). 'atendida'/'rechazada' cierran. Si se cancela, se debe avisar a la persona titular (art. 24):
+   * `notificadoTitular` deja constancia.
+   */
+  async resolverSolicitudArco(id, asociacionId, { estado, resolucion, usuarioId, notificadoTitular }) {
     const cierra = estado === 'atendida' || estado === 'rechazada';
     const { rows } = await query(
-      `UPDATE solicitudes_arco SET estado = $3, resolucion = COALESCE($4, resolucion),
-              atendida_por = CASE WHEN $5 THEN $6::uuid ELSE atendida_por END,
-              atendida_en = CASE WHEN $5 THEN now() ELSE atendida_en END
+      `UPDATE solicitudes_arco SET estado = $3::varchar, resolucion = COALESCE($4::text, resolucion),
+              atendida_por = CASE WHEN $5::boolean THEN $6::uuid ELSE atendida_por END,
+              atendida_en = CASE WHEN $5::boolean THEN now() ELSE atendida_en END,
+              fecha_limite_ejecucion = CASE WHEN $3::varchar = 'en_proceso' AND fecha_limite_ejecucion IS NULL
+                                            THEN ${SQL_DIAS_HABILES('CURRENT_DATE', 15)} ELSE fecha_limite_ejecucion END,
+              titular_notificado_en = CASE WHEN $7::boolean AND titular_notificado_en IS NULL THEN now() ELSE titular_notificado_en END
        WHERE id = $1 AND asociacion_id = $2 RETURNING *`,
-      [id, asociacionId, estado, resolucion || null, cierra, usuarioId]
+      [id, asociacionId, estado, resolucion || null, cierra, usuarioId, Boolean(notificadoTitular)]
     );
     return rows[0] || null;
+  },
+
+  /** Art. 31: los plazos se pueden ampliar UNA sola vez, por un periodo igual (20 días hábiles más). */
+  async ampliarSolicitudArco(id, asociacionId) {
+    const { rows } = await query(
+      `UPDATE solicitudes_arco SET ampliada = true, fecha_limite = ${SQL_DIAS_HABILES('fecha_limite', 20)}
+       WHERE id = $1 AND asociacion_id = $2 AND ampliada = false AND estado IN ('recibida', 'en_proceso') RETURNING *`,
+      [id, asociacionId]
+    );
+    return rows[0] || null;
+  },
+
+  /** Versión del aviso vigente: la configurada por la asociación, o AVISO_PRIVACIDAD_VERSION, o '2026-1'. */
+  async versionAvisoVigente(asociacionId) {
+    const { rows } = await query(`SELECT valor FROM configuracion WHERE asociacion_id = $1 AND clave = 'privacidad.version_aviso'`, [asociacionId]);
+    const configurada = rows[0] && typeof rows[0].valor === 'string' ? rows[0].valor.trim() : '';
+    return configurada || process.env.AVISO_PRIVACIDAD_VERSION || '2026-1';
+  },
+
+  // ---------- Aviso de privacidad configurable (art. 15) ----------
+  async obtenerAviso(asociacionId) {
+    const { rows } = await query(
+      `SELECT a.nombre AS responsable, c.clave, c.valor FROM asociaciones a
+       LEFT JOIN configuracion c ON c.asociacion_id = a.id AND c.clave LIKE 'privacidad.%'
+       WHERE a.id = $1`,
+      [asociacionId]
+    );
+    if (!rows.length) return null;
+    const aviso = { responsable: rows[0].responsable };
+    for (const f of rows) if (f.clave) aviso[f.clave.replace('privacidad.', '')] = f.valor;
+    return aviso;
+  },
+
+  async guardarAviso(asociacionId, campos) {
+    for (const [clave, valor] of Object.entries(campos)) {
+      await query(
+        `INSERT INTO configuracion (asociacion_id, clave, valor) VALUES ($1, $2, $3)
+         ON CONFLICT (asociacion_id, clave) DO UPDATE SET valor = $3`,
+        [asociacionId, `privacidad.${clave}`, JSON.stringify(valor)]
+      );
+    }
   },
 };
 

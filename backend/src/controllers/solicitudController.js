@@ -1,10 +1,13 @@
 const SolicitudModel = require('../models/solicitudModel');
+const PrivacidadModel = require('../models/privacidadModel');
 const { esCorreoValido, longitudValida } = require('../utils/validadores');
+const { esUuid } = require('../utils/identificadores');
 
 const SolicitudController = {
   async crear(req, res, next) {
     try {
       const { nombre, correo, telefono, mensaje } = req.body;
+      if (!esUuid(req.body.asociacion_id)) return res.status(400).json({ error: 'asociacion_id inválido.' });
       if (!nombre || !correo) return res.status(400).json({ error: 'nombre y correo son obligatorios.' });
       if (!esCorreoValido(correo)) return res.status(400).json({ error: 'El correo no tiene un formato válido.' });
       if (!longitudValida(nombre, 200) || !longitudValida(telefono, 30) || !longitudValida(mensaje, 2000)) {
@@ -16,7 +19,7 @@ const SolicitudController = {
       }
       const solicitud = await SolicitudModel.crear({
         asociacionId: req.body.asociacion_id, nombre, correo, telefono, mensaje,
-        versionAviso: process.env.AVISO_PRIVACIDAD_VERSION || '2026-1',
+        versionAviso: await PrivacidadModel.versionAvisoVigente(req.body.asociacion_id),
       });
       return res.status(201).json({ solicitud });
     } catch (err) { return next(err); }

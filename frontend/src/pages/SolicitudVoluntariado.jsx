@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
+import AvisoSimplificado from '../components/AvisoSimplificado.jsx';
 
 /**
  * Formulario público para solicitar unirse como voluntario — no requiere
@@ -111,6 +112,8 @@ export default function SolicitudVoluntariado() {
               />
             </label>
 
+            <AvisoSimplificado asociacionId={form.asociacion_id} />
+
             <label style={{ ...estilos.etiqueta, flexDirection: 'row', alignItems: 'flex-start', gap: 8, fontWeight: 400 }}>
               <input
                 type="checkbox"
@@ -121,7 +124,7 @@ export default function SolicitudVoluntariado() {
               />
               <span>
                 He leído y acepto el{' '}
-                <Link to="/aviso-privacidad" target="_blank" rel="noopener">aviso de privacidad</Link>.
+                <Link to={`/aviso-privacidad${form.asociacion_id ? `?asociacion=${form.asociacion_id}` : ''}`} target="_blank" rel="noopener noreferrer">aviso de privacidad integral</Link>.
               </span>
             </label>
 

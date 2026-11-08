@@ -13,7 +13,7 @@ describe('Fase 13 — datos de salud cifrados en reposo', () => {
     const r = await request(app).post('/api/voluntarios').set(auth()).send({
       nombre: 'Cifrada', apellidoPaterno: 'Prueba', fechaNacimiento: '1994-03-03',
       correo: `cifrada.${Date.now()}.${Math.random().toString(36).slice(2, 6)}@example.com`,
-      tipoSangre: 'O+', alergias: 'Penicilina', discapacidad: 'Visual leve', enfermedadCronica: 'Asma', ...extra,
+      tipoSangre: 'O+', alergias: 'Penicilina', discapacidad: 'Visual leve', enfermedadCronica: 'Asma', consentimientoDatosSensibles: true, ...extra,
     });
     expect(r.status).toBe(201);
     return r.body.voluntario;
@@ -85,7 +85,7 @@ describe('Fase 13 — privacidad: consentimientos, derechos ARCO y anonimizació
       curp: `ANON${Date.now().toString().slice(-8)}HPLRRR09`.slice(0, 18), sexo: 'F',
       correo: `anon.${Date.now()}.${Math.random().toString(36).slice(2, 6)}@example.com`, telefono: '2381112233',
       direccion: 'Calle Falsa 123', colonia: 'Centro', tipoSangre: 'A+', alergias: 'Mariscos', enfermedadCronica: 'Diabetes',
-      contactoEmergenciaNombre: 'Madre Prueba', contactoEmergenciaTelefono: '2389998877',
+      contactoEmergenciaNombre: 'Madre Prueba', contactoEmergenciaTelefono: '2389998877', consentimientoDatosSensibles: true,
     });
     expect(r.status).toBe(201);
     return r.body.voluntario;
@@ -108,7 +108,8 @@ describe('Fase 13 — privacidad: consentimientos, derechos ARCO y anonimizació
     expect(r.headers['content-disposition']).toMatch(/attachment/);
     expect(r.body.voluntario).toMatchObject({ nombre: 'Marisol', alergias: 'Mariscos', tipo_sangre: 'A+', enfermedad_cronica: 'Diabetes' });
     expect(r.body.voluntario).not.toHaveProperty('fotografia_url');
-    expect(r.body.consentimientos).toHaveLength(1);
+    expect(r.body.consentimientos.filter((c) => c.tipo === 'aviso')).toHaveLength(1);
+    expect(r.body.consentimientos.some((c) => c.tipo === 'datos_sensibles')).toBe(true); // se registró al guardar los datos de salud
     expect(Array.isArray(r.body.documentos)).toBe(true);
     expect((await request(app).get('/api/privacidad/voluntarios/00000000-0000-0000-0000-000000000000/datos-personales').set(auth())).status).toBe(404);
   });
@@ -128,7 +129,7 @@ describe('Fase 13 — privacidad: consentimientos, derechos ARCO y anonimizació
     expect(revocado.body.consentimiento.revocado_en).toBeTruthy();
     expect((await request(app).patch(`${base}/${id}/revocar`).set(auth())).status).toBe(404); // ya revocado
     const lista = await request(app).get(base).set(auth());
-    expect(lista.body.consentimientos).toHaveLength(1); // la constancia sigue ahí
+    expect(lista.body.consentimientos.filter((c) => c.tipo === 'aviso')).toHaveLength(1); // la constancia sigue ahí
   });
 
   test('derecho de cancelación: exige confirmación y motivo; borra datos personales y conserva estadísticas', async () => {
@@ -223,7 +224,7 @@ describe('Fase 13 — privacidad: consentimientos, derechos ARCO y anonimizació
   test('la auditoría NO guarda en claro los datos personales sensibles al crear y editar un voluntario', async () => {
     const r = await request(app).post('/api/voluntarios').set(auth()).send({
       nombre: 'Auditada', fechaNacimiento: '1991-02-02', alergias: 'ALERGIA-SECRETA', enfermedadCronica: 'ENFERMEDAD-SECRETA',
-      curp: 'AUDI910202HPLRRR09', telefono: '2387654321',
+      curp: 'AUDI910202HPLRRR09', telefono: '2387654321', consentimientoDatosSensibles: true,
     });
     expect(r.status).toBe(201);
     await request(app).put(`/api/voluntarios/${r.body.voluntario.id}`).set(auth()).send({ alergias: 'OTRA-ALERGIA-SECRETA', direccion: 'DOMICILIO-SECRETO' });
